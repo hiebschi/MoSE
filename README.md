@@ -9,24 +9,24 @@ hier fehlt Text
 
 MoSE_repo/  
 │    
-├── notebooks/    
-│   ├── 01_preprocessing.ipynb   
-│   ├── 02_training.ipynb    
-│   ├── 03_evaluation.ipynb    
-│   └── 04_visualization.ipynb    
+├── **notebooks**/ # run it!   
+│   ├── 01_preprocessing.ipynb # load and preprocess data  
+│   ├── 02_training.ipynb # implement, train, test and save model   
+│   ├── 03_evaluation.ipynb # evaluate model with various metrics   
+│   └── 04_visualization.ipynb # visualize results   
 │     
-├── scripts/    
-│   ├── data_utils.py   
-│   ├── model_utils.py   
-│   ├── train_utils.py   
-│   ├── evaluation_utils.py   
-│   └── visualization_utils.py   
+├── **scripts**/ # (helper) functions  
+│   ├── data_utils.py # load data: dataset, dataloader   
+│   ├── model_utils.py # model architecture, loss function and optimizer   
+│   ├── train_utils.py # training and testing loop, learning rate scheduler   
+│   ├── evaluation_utils.py # calculate evaluation metrics  
+│   └── visualization_utils.py # visualise image data and masks,...    
 │   
-├── configs/   
-│   └── config.py    
+├── **configs**/   
+│   └── config.py # hyperparameters and paths   
 │   
-├── requirements.txt  # dependencies    
-└── README.md         # project overview    
+├── **requirements**.txt # dependencies    
+└── **README.md** # project overview    
    
 not in the repository:   
     
