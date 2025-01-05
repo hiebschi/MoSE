@@ -12,7 +12,8 @@ import torch
 # Timing function
 
 def print_train_time(start: float, end: float, device: torch.device = None):
-    """Prints difference between start and end time.
+    """
+    Prints difference between start and end time.
 
     Args:
         start (float): Start time of computation (preferred in timeit format).
@@ -22,9 +23,9 @@ def print_train_time(start: float, end: float, device: torch.device = None):
     Returns:
         float: time between start and end in seconds (higher is longer).
     """
+
     total_time = end - start
     print(f"Train time on {device}: {total_time:.3f} seconds")
-    return total_time
 
 
 
@@ -42,11 +43,20 @@ def train_step(model: torch.nn.Module,
     """
     Performs a training loop step with model trying to learn on data_loader.
     
-    
-    
-    
+    Args:
+        model (torch.nn.Module): Segmentation model.
+        data_loader (torch.utils.data.DataLoader): Batch-wise-grouped DataLoader [names, images, masks].
+        loss_fn (torch.nn.Module): Function for calculating the loss.
+        optimizer (torch.optim.Optimizer): Function for optimizing the parameters of the model.
+        accuracy_fn: Calculates the overall accuracy between predicted and true masks.
+        device (torch.device): Device that compute is running on.
+        showprint (bool) = True: Whether the results should be printed or should not.
+
+    Returns: 
+         [torch.float]: Train loss value of current epoch.
     """
-    # (inside of the epoch loop)
+
+    # (start of epoch loop)
 
     # Send model to device
     model.to(device)
@@ -58,26 +68,26 @@ def train_step(model: torch.nn.Module,
     train_loss_epoch, train_acc_epoch = 0, 0
 
     # loop through the batches
-    for batch, (name, train_image, train_mask) in enumerate(data_loader):
+    for batch, (names, train_images, train_masks) in enumerate(data_loader):
         # for each batch, go over each patch and mask inside it
         
         # Send data to device
-        train_image, train_mask = train_image.to(device), train_mask.to(device)
+        train_images, train_masks = train_images.to(device), train_masks.to(device)
 
         # 1. Forward pass
-        train_logits = model(train_image)
+        train_logits = model(train_images)
         # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
         train_pred_probs = torch.sigmoid(train_logits) 
 
         # 2. Calculate loss and accuracy per batch
         # Train loss
-        loss_batch = loss_fn(train_pred_probs, train_mask) # loss value over current batch (all patches inside)
+        loss_batch = loss_fn(train_pred_probs, train_masks) # loss value over current batch (all patches inside)
         train_loss_epoch += loss_batch.item() # accumulatively add up the loss >> added up loss in one epoch
 
         # go from prediction probabilities to prediction labels (binary: 0 or 1)
         train_preds = torch.round(train_pred_probs) 
         # Accuracy
-        train_acc_epoch += accuracy_fn(train_mask, train_preds) # added up accuracy in one epoch
+        train_acc_epoch += accuracy_fn(train_masks, train_preds) # added up accuracy in one epoch
 
         # 3. Optimizer zero grad
         optimizer.zero_grad()
@@ -93,6 +103,7 @@ def train_step(model: torch.nn.Module,
             if batch % 100 == 0:
                 print(f"Train Loss of [Batch {batch}/{len(data_loader)}]: {loss_batch.item():.4f}")
 
+
     # outside of the batch loop
     # (inside of the epoch loop)
 
@@ -102,6 +113,7 @@ def train_step(model: torch.nn.Module,
     train_acc_epoch /= len(data_loader) # len(data_loader) = number of batches
     # >> average accuracy of current epoch
 
+    # Log training loop results
     print(f"Train loss: {train_loss_epoch:.5f} | Train accuracy: {train_acc_epoch:.2f}%")
 
     return train_loss_epoch
@@ -115,37 +127,64 @@ def test_step(data_loader: torch.utils.data.DataLoader,
               model: torch.nn.Module,
               loss_fn: torch.nn.Module,
               accuracy_fn,
-              device: torch.device,
-              showprint = True):
+              device: torch.device):
     """
     Performs a testing loop step with model trying to learn on data_loader.
     
-    
-    
-    
+    Args:
+        model (torch.nn.Module): Segmentation model.
+        data_loader (torch.utils.data.DataLoader): Batch-wise-grouped DataLoader [names, images, masks].
+        loss_fn (torch.nn.Module): Function for calculating the loss.
+        accuracy_fn: Calculates the overall accuracy between predicted and true masks.
+        device (torch.device): Device that compute is running on.
+        
+    Returns: 
+         [torch.float]: Train loss value of current epoch.
     """
 
-    test_loss_epoch, test_acc_epoch = 0, 0
+    # (inside of the epoch loop)
+
+    # Send model to device
     model.to(device)
 
-    model.eval() # put model in eval mode
+    # Put model into evaluation mode
+    model.eval()
+
+    # Define test loss and accuracy
+    test_loss_epoch, test_acc_epoch = 0, 0
+    
     # Turn on inference context manager
     with torch.inference_mode():
-        for X, y in data_loader:
-            # Send data to GPU
-            X, y = X.to(device), y.to(device)
+        for names, test_images, test_masks in data_loader:
+        # for batch_idx, (names, test_images, test_masks) in enumerate(data_loader):
+
+            # Send data to device
+            test_images, test_masks = test_images.to(device), test_masks.to(device)
 
             # 1. Forward pass
-            test_pred = model(X)
+            test_logits = model(test_images)
+            # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
+            test_pred_probs = torch.sigmoid(test_logits) 
 
             # 2. Calculate loss and accuracy
-            test_loss += loss_fn(test_pred, y)
-            test_acc += accuracy_fn(y_true=y,
-                y_pred=test_pred.argmax(dim=1) # Go from logits -> pred labels
-            )
+            # Test loss
+            test_loss_epoch += loss_fn(test_pred_probs, test_masks) # accumulatively add up the loss >> added up loss in one epoch
 
-        # Adjust metrics and print out
-        test_loss /= len(data_loader)
-        test_acc /= len(data_loader)
-        print(f"Test loss: {test_loss:.5f} | Test accuracy: {test_acc:.2f}%\n")
+            # go from prediction probabilities to prediction labels (binary: 0 or 1)
+            test_preds = torch.round(test_pred_probs) 
+            # Accuracy
+            test_acc_epoch += accuracy_fn(test_masks, test_preds) # added up accuracy in one epoch
 
+
+        # Calculate average loss and average accuracy of current epoch
+        test_loss_epoch /= len(data_loader) # divide the added up loss through the number of batches
+        # >> average loss of current epoch 
+        test_acc_epoch /= len(data_loader) # len(data_loader) = number of batches
+        # >> average accuracy of current epoch
+        
+        # Log testing loop results
+        print(f"Test loss: {test_loss_epoch:.5f} | Test accuracy: {test_acc_epoch:.2f}%\n")
+
+        # (end of epoch loop)
+
+        return test_loss_epoch
