@@ -33,6 +33,7 @@ def print_train_time(start: float, end: float, device: torch.device = None):
 # Training loop
 
 def train_step(model: torch.nn.Module,
+               num_classes,
                data_loader: torch.utils.data.DataLoader,
                loss_fn: torch.nn.Module,
                optimizer: torch.optim.Optimizer,
@@ -45,6 +46,7 @@ def train_step(model: torch.nn.Module,
     
     Args:
         model (torch.nn.Module): Segmentation model.
+        num_classes (int): Number of classes.
         data_loader (torch.utils.data.DataLoader): Batch-wise-grouped DataLoader [names, images, masks].
         loss_fn (torch.nn.Module): Function for calculating the loss.
         optimizer (torch.optim.Optimizer): Function for optimizing the parameters of the model.
@@ -66,6 +68,7 @@ def train_step(model: torch.nn.Module,
 
     # Define training loss and accuracy
     train_loss_epoch, train_acc_epoch = 0, 0
+    train_loss_class = torch.zeros(num_classes, device=device)  # loss for every class
 
     # loop through the batches
     for batch, (names, train_images, train_masks) in enumerate(data_loader):
@@ -88,6 +91,12 @@ def train_step(model: torch.nn.Module,
         train_preds = torch.round(train_pred_probs) 
         # Accuracy
         train_acc_epoch += accuracy_fn(train_masks, train_preds) # added up accuracy in one epoch
+
+        # Update class-wise loss
+        for cls in range(num_classes):
+            train_loss_class[cls] += loss_fn(
+                train_pred_probs[:, cls, :, :], train_masks[:, cls, :, :]
+            ).item()
 
         # 3. Optimizer zero grad
         optimizer.zero_grad()
@@ -112,9 +121,12 @@ def train_step(model: torch.nn.Module,
     # >> average loss of current epoch 
     train_acc_epoch /= len(data_loader) # len(data_loader) = number of batches
     # >> average accuracy of current epoch
+    train_loss_class /= len(data_loader)
+    # >> average loss per class of current epoch
 
     # Log training loop results
     print(f"Train loss: {train_loss_epoch:.5f} | Train accuracy: {train_acc_epoch:.2f}%")
+    print(f"Train Class-wise Loss: {train_loss_class.tolist()}")
 
     return train_loss_epoch
 
@@ -123,8 +135,9 @@ def train_step(model: torch.nn.Module,
 ############################################################
 # Testing loop
 
-def test_step(data_loader: torch.utils.data.DataLoader,
-              model: torch.nn.Module,
+def test_step(model: torch.nn.Module,
+              num_classes,
+              data_loader: torch.utils.data.DataLoader,
               loss_fn: torch.nn.Module,
               accuracy_fn,
               device: torch.device):
@@ -133,6 +146,7 @@ def test_step(data_loader: torch.utils.data.DataLoader,
     
     Args:
         model (torch.nn.Module): Segmentation model.
+        num_classes (int): Number of classes.
         data_loader (torch.utils.data.DataLoader): Batch-wise-grouped DataLoader [names, images, masks].
         loss_fn (torch.nn.Module): Function for calculating the loss.
         accuracy_fn: Calculates the overall accuracy between predicted and true masks.
@@ -152,6 +166,7 @@ def test_step(data_loader: torch.utils.data.DataLoader,
 
     # Define test loss and accuracy
     test_loss_epoch, test_acc_epoch = 0, 0
+    test_loss_class = torch.zeros(num_classes, device=device)  # loss for every class
     
     # Turn on inference context manager
     with torch.inference_mode():
@@ -175,15 +190,23 @@ def test_step(data_loader: torch.utils.data.DataLoader,
             # Accuracy
             test_acc_epoch += accuracy_fn(test_masks, test_preds) # added up accuracy in one epoch
 
+            # Update class-wise loss
+            for cls in range(num_classes):
+                test_loss_class[cls] += loss_fn(
+                    test_pred_probs[:, cls, :, :], test_masks[:, cls, :, :]
+                ).item()
 
         # Calculate average loss and average accuracy of current epoch
         test_loss_epoch /= len(data_loader) # divide the added up loss through the number of batches
         # >> average loss of current epoch 
         test_acc_epoch /= len(data_loader) # len(data_loader) = number of batches
         # >> average accuracy of current epoch
+        test_loss_class /= len(data_loader)
+        # >> average loss per class of current epoch
         
         # Log testing loop results
         print(f"Test loss: {test_loss_epoch:.5f} | Test accuracy: {test_acc_epoch:.2f}%\n")
+        print(f"Test Class-wise Loss: {test_loss_class.tolist()}")
 
         # (end of epoch loop)
 
