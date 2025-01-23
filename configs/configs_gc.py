@@ -38,7 +38,7 @@ HYPERPARAMETERS = {
     "train_sections": ["A01", "A02", "A03", "A04", "A05", "A08"],
     "test_sections": ["A06", "A07"],
     "num_classes": 9,
-    "batch_size": 4,
+    "batch_size": 8,
     "epochs": 5,
     "learning_rate": 0.00001,
     "seed": 42

@@ -39,6 +39,7 @@ def accuracy_fn(true_mask, pred_mask):
     return acc
 
 
+##############################################
 # Dice similarity coefficient (DSC) per class
 
 def DSC_per_class(true_mask, pred_mask, showprint = True):
@@ -77,4 +78,28 @@ def DSC_per_class(true_mask, pred_mask, showprint = True):
             print(f"Class {i + 1}: Dice = {dice:.4f}")
     
     return results
+
+
+
+
+#############################################
+def calculate_classwise_loss(pred_probs, true_masks, loss_fn, num_classes):
+    """
+    Calculates loss per class.
+    
+    Args:
+        pred_probs (torch.Tensor): prdiction probabilities [B, C, H, W].
+        true_masks (torch.Tensor): true masks [B, C, H, W].
+        loss_fn (torch.nn.Module): loss function
+        num_classes (int): number of classes
+    
+    Returns:
+        classwise_loss (list): list with loss per class.
+    """
+    classwise_loss = []
+    for cls in range(num_classes):
+        loss = loss_fn(pred_probs[:, cls, :, :], true_masks[:, cls, :, :])
+        classwise_loss.append(loss.item())
+    return classwise_loss
+
 

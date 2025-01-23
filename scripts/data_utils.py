@@ -47,8 +47,8 @@ def has_mask(patch_name, masks_dir):
 
     mask_path = os.path.join(masks_dir, patch_name.replace(".npy.npz", "_mask.npy")) # load corresponding mask path
     
-    return os.path.exists(mask_path) # check if path exists
 
+    return os.path.exists(mask_path) # check if path exists
 
 # helper-function to load a single .npz file and extract the first array
 # function for undoing the .npz-compression! unzip!
@@ -183,3 +183,53 @@ class PatchDataset(Dataset):
           mask = mask.repeat(9, 1, 1) # Repeat this along the channel dimension 9 times to get the desired shape (9, H, W)
 
         return patch_name, patch, mask
+    
+
+
+##################
+# Data exploration: How many pixels per class and how many are background pixels?
+
+def average_pixel_distribution_dataloader(data_loader, num_classes, device, showprint=True):
+    """
+    Calculates the average pixel distribution per class (including background) over an entire DataLoader.
+
+    Args:
+        data_loader (torch.utils.data.DataLoader): DataLoader containing the dataset.
+        num_classes (int): Total number of classes (excluding background).
+        device (torch.device): Device to which the tensors should be moved.
+        showprint (bool): Whether to print the results. Defaults to True.
+
+    Returns:
+        dict: Dictionary containing the average percentage of pixels per class (including background).
+    """
+    # Initialize counters
+    class_pixel_counts = torch.zeros(num_classes, dtype=torch.float32, device=device)
+    total_pixels = 0
+
+    # Iterate through the DataLoader
+    for _, _, masks in data_loader:  # Assume DataLoader returns [names, images, masks]
+        # Send masks to the specified device
+        masks = masks.to(device)
+
+        # Flatten spatial dimensions and sum pixel counts for each class
+        batch_class_counts = masks.sum(dim=(0, 2, 3))  # Sum over batch, height, and width for each class
+        class_pixel_counts += batch_class_counts
+
+        # Add to total pixel count (batch_size * height * width)
+        total_pixels += masks.numel() // masks.shape[1]  # Total pixels in batch
+
+    # Calculate background pixels
+    background_pixels = total_pixels - class_pixel_counts.sum().item()
+
+    # Calculate percentage for each class
+    results = {"Background": background_pixels / total_pixels * 100}
+    for cls in range(num_classes):
+        results[f"Class {cls + 1}"] = class_pixel_counts[cls].item() / total_pixels * 100
+
+    # Optional: Print results
+    if showprint:
+        print("Average Pixel Distribution (%):")
+        for class_name, percentage in results.items():
+            print(f"{class_name}: {percentage:.2f}%")
+    
+    return results
