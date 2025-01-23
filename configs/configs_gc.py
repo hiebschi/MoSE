@@ -39,7 +39,7 @@ HYPERPARAMETERS = {
     "test_sections": ["A06", "A07"],
     "num_classes": 9,
     "batch_size": 4,
-    "epochs": 30,
+    "epochs": 5,
     "learning_rate": 0.00001,
     "seed": 42
 }
