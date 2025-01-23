@@ -26,6 +26,7 @@ BASE_DIR = '/content/drive/My Drive/Dokumente.GD/FS06 SS24/BACHELORARBEIT/MoSE/d
 DATA_DIR = {
     "preprocessed_patches": os.path.join(BASE_DIR, 'preprocessed_patches'),
     "masks": os.path.join(BASE_DIR, 'masks'),
+    "masks_ohe": os.path.join(BASE_DIR, 'masks_ohe'),
     "codes": os.path.join(BASE_DIR, 'classes'),
     "labels": os.path.join(BASE_DIR, 'shapefiles'),
     "saved_models": os.path.join(BASE_DIR, 'saved_models')
@@ -37,7 +38,7 @@ DATA_DIR = {
 HYPERPARAMETERS = {
     "train_sections": ["A01", "A02", "A03", "A04", "A05", "A08"],
     "test_sections": ["A06", "A07"],
-    "num_classes": 9,
+    "num_classes": 10,
     "batch_size": 8,
     "epochs": 5,
     "learning_rate": 0.00001,
