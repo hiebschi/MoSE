@@ -20,6 +20,12 @@ from torch import nn
 from torch.utils.data import Dataset
 
 
+# import configs.py-file
+import importlib
+from configs import configs_gc
+importlib.reload(configs_gc) # reload changes
+
+
 def extract_section_and_id(file_name):
     """
     Extracts section and patch_id from the file_name of masks and of preprocessed and compressed patches.
@@ -168,19 +174,19 @@ class PatchDataset(Dataset):
                 mask = np.load(mask_path) # load mask
                 mask = torch.tensor(mask, dtype=torch.float32) # convert mask into Tensor and change datatype to float32
             else:
-                mask = torch.zeros((9, patch.shape[1], patch.shape[2]), dtype=torch.float32)  # Create default background mask = all pixels in all channels (= classes) are zeros
+                mask = torch.zeros((configs_gc.HYPERPARAMETERS["num_classes"], patch.shape[1], patch.shape[2]), dtype=torch.float32)  # Create default background mask = all pixels in all channels (= classes) are zeros
         else:
-            mask = torch.zeros((9, patch.shape[1], patch.shape[2]), dtype=torch.float32)  # Default background mask
+            mask = torch.zeros((configs_gc.HYPERPARAMETERS["num_classes"], patch.shape[1], patch.shape[2]), dtype=torch.float32)  # Default background mask
 
         # Apply any transformations if needed
         if self.transform:
             patch, mask = self.transform(patch, mask)
 
         # Ensure mask has the correct number of channels
-        if mask.shape[0] != 9:  # If mask doesn't have 9 channels
-          print("WARNING: NOT 9 CHANNELS!")
+        if mask.shape[0] != configs_gc.HYPERPARAMETERS["num_classes"]:  # If mask doesn't have the right number of channels
+          print("WARNING: NOT THE RIGHT NUMBER OF CHANNELS!")
           mask = mask.unsqueeze(0)  # Add a channel dimension to the beginning to make it (1, H, W)
-          mask = mask.repeat(9, 1, 1) # Repeat this along the channel dimension 9 times to get the desired shape (9, H, W)
+          mask = mask.repeat(configs_gc.HYPERPARAMETERS["num_classes"], 1, 1) # Repeat this along the channel dimension to get the desired shape (NUM_CLASSES, H, W)
 
         return patch_name, patch, mask
     
