@@ -7,6 +7,7 @@ If a function gets defined once and could be used over and over, it'll go in her
 """
 
 import segmentation_models_pytorch as smp
+import torch.nn as nn
 
 # import configs.py-file
 import importlib
@@ -22,6 +23,8 @@ model_0 = smp.Unet(   # -------------------->> ADJUSTABLE
 
 
 DiceLoss_fn = smp.losses.DiceLoss(mode="multilabel")
+
+# CrossEntropyLoss_fn = nn.CrossEntropyLoss()
 
 
 
