@@ -31,13 +31,13 @@ def extract_section_and_id(file_name):
     Extracts section and patch_id from the file_name of masks and of preprocessed and compressed patches.
     
     Args:
-        file_name (str): file name of an preprocessd patch (.npy.npz) or an mask (_mask.npy)
+        file_name (str): file name of an preprocessed patch (.npy) or an mask (_mask.npy)
     
     """
     
     parts = file_name.split("_") # split condition: _
     section = parts[0]  # extract section from file_name, e.g. "A01"
-    patch_id = parts[2].replace(".npy.npz", "").replace("_mask", "") #  extract patch_id, e.g. 481
+    patch_id = parts[2].replace(".npy", "").replace("_mask", "") #  extract patch_id, e.g. 481
     
     return section, patch_id
 
@@ -47,14 +47,16 @@ def has_mask(patch_name, masks_dir):
     Check if a patch has a corresponding mask in the masks directory.
 
     Args:
-        patch_name (str): Name of the patch (e.g., 'A01_patch_481.npy.npz').
+        patch_name (str): Name of the patch (e.g., 'A01_patch_481.npy').
         masks_dir (str): Directory where masks are stored.
     """
 
-    mask_path = os.path.join(masks_dir, patch_name.replace(".npy.npz", "_mask.npy")) # load corresponding mask path
+    mask_path = os.path.join(masks_dir, patch_name.replace(".npy", "_mask.npy")) # load corresponding mask path
     
 
     return os.path.exists(mask_path) # check if path exists
+
+
 
 # helper-function to load a single .npz file and extract the first array
 # function for undoing the .npz-compression! unzip!
@@ -111,40 +113,41 @@ def parallel_load_npz(patches_npz_list, patches_npz_dir):
 # Dataset
 
 class PatchDataset(Dataset):
-    def __init__(self, patches_npz_list, patches_npz_dir, masks_dir=None, transform=None, preload = False): 
+    def __init__(self, patches_list, patches_dir, masks_dir=None, transform=None, preload = False): 
         # initializes the dataset by saving list of .npz-patches, the directory of the .npz-patches and the masks 
         # and optional transformations and preloads
 
         """
-        Custom Dataset for loading .npz patches and optional masks.
+        Custom Dataset for loading .npy patches and optional masks.
         Args:
-            patches_npz_list (list): List of the patch .npz-files.
-            patches_npz_dir (str): Directory containing patch .npz-files.
+            patches_list (list): List of the patch .npy-files.
+            patches_dir (str): Directory containing patch .npy-files.
             masks_dir (str): Directory containing mask.npy files (optional).
             transform (callable, optional): Transformation to be applied to the data.
             preload (bool): Whether to preload all patches into memory.
         """
 
-        self.patches_npz_list = patches_npz_list
-        self.patches_npz_dir = patches_npz_dir
+        self.patches_list = patches_list
+        self.patches_dir = patches_dir
         self.masks_dir = masks_dir
         self.transform = transform
         self.preload = preload
 
-        if preload:
-            # Parallel loading of patches using ThreadPoolExecutor
-            print("Preloading patches...")
-            self.preloaded_patches = parallel_load_npz(patches_npz_list, patches_npz_dir)
-        else:
-            self.preloaded_patches = None
+        # ONLY FOR COMPRESSED .npy.NPZ-PATCHES (see commit: "!UNZIP AND CHANGE FUNCTIONS TO .NPY!")
+        # if preload:
+        #     # Parallel loading of patches using ThreadPoolExecutor
+        #     print("Preloading patches...")
+        #     self.preloaded_patches = parallel_load_npz(patches_npz_list, patches_npz_dir)
+        # else:
+        #     self.preloaded_patches = None
 
     def __len__(self):
 
         """
-        Returns the number of .npz-patches in the dataset.
+        Returns the number of .npy-patches in the dataset.
         """
 
-        return len(self.patches_npz_list) # returns the number of .npz-patches for the DataLoader
+        return len(self.patches_list) # returns the number of .npy-patches for the DataLoader
 
     def __getitem__(self, idx): # loads patch and corresponding mask
 
@@ -157,12 +160,17 @@ class PatchDataset(Dataset):
             tuple: A tuple containing the patch and its mask.
         """
 
-        if self.preload and self.preloaded_patches is not None:
-            # Use preloaded patch
-            patch_name, patch = self.preloaded_patches[idx] # save patch name and patch image data
-        else:
-            # Load .npz-patch dynamically with patch loading function (see 4.1)
-            patch_name, patch = load_npz_patch(self.patches_npz_list[idx], self.patches_npz_dir) # save patch name and patch image data
+        # if self.preload and self.preloaded_patches is not None:
+        #     # Use preloaded patch
+        #     patch_name, patch = self.preloaded_patches[idx] # save patch name and patch image data
+        # else:
+        #     # Load .npz-patch dynamically with patch loading function (see 4.1)
+        #     patch_name, patch = load_npz_patch(self.patches_npz_list[idx], self.patches_npz_dir) # save patch name and patch image data
+
+        # Load .npy-patch dynamically
+        patch_name = self.patches_list[idx]
+        patch_path = os.path.join(self.patches_dir, patch_name)
+        patch = np.load(patch_path)
 
         # Convert patch into Tensor and change dtype to float32
         patch = torch.tensor(patch, dtype=torch.float32)

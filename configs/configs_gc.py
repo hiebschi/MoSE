@@ -24,7 +24,7 @@ BASE_DIR = '/content/drive/My Drive/Dokumente.GD/FS06 SS24/BACHELORARBEIT/MoSE/d
 
 # Data Paths
 DATA_DIR = {
-    "preprocessed_patches": os.path.join(BASE_DIR, 'preprocessed_patches'),
+    "preprocessed_patches_unz": os.path.join(BASE_DIR, 'preprocessed_patches_unz'),
     "masks": os.path.join(BASE_DIR, 'masks'),
     "masks_ohe": os.path.join(BASE_DIR, 'masks_ohe'),
     "targets": os.path.join(BASE_DIR, 'targets'),
@@ -41,7 +41,7 @@ HYPERPARAMETERS = {
     "test_sections": ["A06", "A07"],
     "num_classes": 10,
     "batch_size": 8,
-    "epochs": 5,
+    "epochs": 30,
     "learning_rate": 0.00001,
     "seed": 42
 }
