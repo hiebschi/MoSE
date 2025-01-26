@@ -84,26 +84,31 @@ def train_step(model: torch.nn.Module,
         # print(train_logits.shape)
         # print(torch.min(train_logits))
         # print(torch.max(train_logits))
-        
-        # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
-        train_pred_probs = torch.sigmoid(train_logits) 
-        # Shape: torch.Size([8, 10, 512, 512])
-        # Decimal numbers between 0 and 1
 
         # 2. Calculate loss and accuracy per batch
         # Train loss
         # loss_batch = loss_fn(train_logits, train_masks) # loss value over current batch (all patches inside)
         # Masks shape: torch.Size([8, 10, 512, 512])
         # convert one-hot-encoded masks into class-index-format
-        train_targets = torch.argmax(train_masks, dim=1)  # index of the highest class
-        # train_targets = torch.argmax(train_masks, dim=1).long  # index of the highest class
+        train_targets = torch.argmax(train_masks, dim=1) # index of the highest class
+        train_targets
         # print(train_targets.shape)  # shape: [batch_size, 512, 512]
-        print(train_targets.dtype)
+        # print(train_targets.dtype) # torch.int64
+        print(torch.unique(train_targets))  # check, if all values between 0 and 9
         
         # print(torch.min(train_targets))
         # print(torch.max(train_targets))
+
+        print(f"Logits Shape: {train_logits.shape}, Min: {torch.min(train_logits)}, Max: {torch.max(train_logits)}")
+        print(f"Targets Shape: {train_targets.shape}, Unique: {torch.unique(train_targets)}")
+
         loss_batch = loss_fn(train_logits, train_targets)
         train_loss_epoch += loss_batch.item() # accumulatively add up the loss >> added up loss in one epoch
+
+        # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
+        train_pred_probs = torch.sigmoid(train_logits) 
+        # Shape: torch.Size([8, 10, 512, 512])
+        # Decimal numbers between 0 and 1
 
         # go from prediction probabilities to prediction labels (binary: 0 or 1)
         train_preds = torch.round(train_pred_probs)
