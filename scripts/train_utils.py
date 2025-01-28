@@ -118,11 +118,11 @@ def train_step(model: torch.nn.Module,
         # Accuracy
         train_acc_epoch += accuracy_fn(train_masks, train_preds) # added up accuracy in one epoch
 
-        # Update class-wise loss
-        for cls in range(num_classes):
-            train_loss_class[cls] += loss_fn(
-                train_pred_probs[:, cls, :, :], train_masks[:, cls, :, :]
-            ).item()
+        # # Update class-wise loss
+        # for cls in range(num_classes):
+        #     train_loss_class[cls] += loss_fn(
+        #         train_pred_probs[:, cls, :, :], train_masks[:, cls, :, :]
+        #     ).item()
 
         # 3. Optimizer zero grad
         optimizer.zero_grad()
@@ -152,7 +152,7 @@ def train_step(model: torch.nn.Module,
 
     # Log training loop results
     print(f"Train loss: {train_loss_epoch:.5f} | Train accuracy: {train_acc_epoch:.2f}%")
-    print(f"Train Class-wise Loss: {train_loss_class.tolist()}")
+    # print(f"Train Class-wise Loss: {train_loss_class.tolist()}")
 
     return train_loss_epoch
 
