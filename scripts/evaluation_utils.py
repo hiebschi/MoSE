@@ -9,23 +9,26 @@ import torch
 # Classification metrics
 ####################################
 
-# Overall accuracy
+
+# No. 1: Overall accuracy
+####################################
 
 def accuracy_fn(true_mask, pred_mask):
     """
-    Calculates pixel-wise accuracy for segmentation tasks.
+    Calculates overall accuracy per batch: correct classified pixels / all pixels.
+    Compares the number of correct classifications to all the classifications to be made.
 
     Args:
-        true_mask (torch.Tensor): Ground truth labels (shape: [batch_size, class channels, height, width]).
-        pred_mask (torch.Tensor): Predicted labels (shape: [batch_size, class channels, height, width]).
+        true_mask (torch.Tensor): ground truth/ true one-hot-encoded mask (shape: [batch_size, class channels, height, width]).
+        pred_mask (torch.Tensor): predicted one-hot-encoded mask (shape: [batch_size, class channels, height, width]).
 
     Returns:
         float: Pixel-wise accuracy as a percentage.
     """
 
     # Flatten the tensors to compute over all pixels
-    true_mask = true_mask.view(-1)  # Shape: [total_pixels]
-    pred_mask = pred_mask.view(-1)  # Shape: [total_pixels]
+    true_mask = true_mask.reshape(-1)  # Shape: [total_pixels] 
+    pred_mask = pred_mask.reshape(-1)  # Shape: [total_pixels]
 
     # Calculate the number of correctly classified pixels
     correct = torch.eq(true_mask, pred_mask).sum().item()
@@ -36,6 +39,39 @@ def accuracy_fn(true_mask, pred_mask):
     # Compute accuracy
     acc = (correct / total_pixels) * 100
     return acc
+
+
+def oaccuracy_fn(true_mask, pred_mask):
+    """
+    Berechnet die pixelweise Accuracy pro Batch.
+
+    Args:
+        true_mask (torch.Tensor): Ground-Truth-Maske (shape: [batch_size, num_classes, height, width]).
+        pred_mask (torch.Tensor): Modellvorhersage als one-hot-encoded Tensor (shape: [batch_size, num_classes, height, width]).
+
+    Returns:
+        float: Pixel-genaue Genauigkeit in Prozent.
+    """
+
+    # One-hot-encoded Masken in Klassenlabels umwandeln (Index der höchsten Wahrscheinlichkeit)
+    true_labels = torch.argmax(true_mask, dim=1)  # Shape: [batch_size, height, width]
+    pred_labels = torch.argmax(pred_mask, dim=1)  # Shape: [batch_size, height, width]
+
+    # Flatten, um über alle Pixel zu berechnen
+    true_labels = true_labels.view(-1)  # Shape: [total_pixels]
+    pred_labels = pred_labels.view(-1)  # Shape: [total_pixels]
+
+    # Anzahl der korrekten Vorhersagen berechnen
+    correct = torch.eq(true_labels, pred_labels).sum().item()
+
+    # Gesamtanzahl der Pixel berechnen
+    total_pixels = true_labels.numel()
+
+    # Accuracy berechnen
+    acc = (correct / total_pixels) * 100
+    return acc
+
+    
 
 
 ##############################################

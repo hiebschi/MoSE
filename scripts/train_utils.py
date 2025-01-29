@@ -83,7 +83,7 @@ def train_step(model: torch.nn.Module,
 
         # 2. Train loss and accuracy
 
-        # Masks shape: torch.Size([batch_size, num_classes, 512, 512]) 
+        # train_masks.shape: torch.Size([batch_size, num_classes, 512, 512]) 
         # -> convert one-hot-encoded masks into class-index-format
         train_targets = torch.argmax(train_masks, dim=1) # index of the highest class
         train_targets = train_targets.long() 
@@ -211,11 +211,6 @@ def test_step(model: torch.nn.Module,
             # 2.2 Accuracy
             test_acc_epoch += accuracy_fn(test_masks, test_preds) # added up accuracy in one epoch
 
-            # # Update class-wise loss
-            # for cls in range(num_classes):
-            #     test_loss_class[cls] += loss_fn(
-            #         test_pred_probs[:, cls, :, :], test_masks[:, cls, :, :]
-            #     ).item()
 
         # Calculate average loss and average accuracy of current epoch
         test_loss_epoch /= len(data_loader) # divide the added up loss through the number of batches
