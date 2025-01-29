@@ -86,7 +86,7 @@ def train_step(model: torch.nn.Module,
         # Masks shape: torch.Size([batch_size, num_classes, 512, 512]) 
         # -> convert one-hot-encoded masks into class-index-format
         train_targets = torch.argmax(train_masks, dim=1) # index of the highest class
-        train_targets
+        train_targets = train_targets.long() 
         # .shape: [batch_size, 512, 512]
         # .dtype: torch.int64; Integers between 0 and [num_classes - 1]
 
