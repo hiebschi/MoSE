@@ -78,6 +78,7 @@ def train_step(model: torch.nn.Module,
 
         # 1. Forward pass
         train_logits = model(train_images)
+        train_logits = train_logits.float()
         # Shape: torch.Size([batch_size, num_classes, 512, 512])
         # Decimal numbers between -7 and 6
 
@@ -96,24 +97,24 @@ def train_step(model: torch.nn.Module,
 
         # 2.2 Class-wise loss
         
-        for cls_idx in range(num_classes): # loop over all classes
-            # creates masks with TRUE values for each pixel that actually (in reality) 
-            # belongs to the class with the index cls_idx
-            class_mask = (train_targets == cls_idx) # shape: [batch_size, 512, 512]; dtype: bool
+        # for cls_idx in range(num_classes): # loop over all classes
+        #     # creates masks with TRUE values for each pixel that actually (in reality) 
+        #     # belongs to the class with the index cls_idx
+        #     class_mask = (train_targets == cls_idx) # shape: [batch_size, 512, 512]; dtype: bool
 
-            if class_mask.sum() > 0:  # avoid division by zero -> if there are any pixels for this class, do this:
+        #     if class_mask.sum() > 0:  # avoid division by zero -> if there are any pixels for this class, do this:
                 
-                # extract logits of current class
-                class_logits = train_logits[:, cls_idx, :, :] # Shape: [batch_size, 512, 512]
+        #         # extract logits of current class
+        #         class_logits = train_logits[:, cls_idx, :, :] # Shape: [batch_size, 512, 512]
                 
-                # calculate loss only for relevant pixel
-                loss = F.cross_entropy(class_logits, train_targets, reduction='none')  # Shape: [batch_size, 512, 512]
-                class_loss = loss[class_mask].mean() # mean for relevant pixel
+        #         # calculate loss only for relevant pixel
+        #         loss = F.cross_entropy(class_logits, train_targets, reduction='none')  # Shape: [batch_size, 512, 512]
+        #         class_loss = loss[class_mask].mean() # mean for relevant pixel
                 
-                # save loss for this class
-                train_class_wise_loss[cls_idx] = class_loss.item()
+        #         # save loss for this class
+        #         train_class_wise_loss[cls_idx] = class_loss.item()
 
-                print("Train Class-Wise Loss:", train_class_wise_loss)
+        #         print("Train Class-Wise Loss:", train_class_wise_loss)
 
 
         # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
