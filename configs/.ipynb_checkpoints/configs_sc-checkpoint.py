@@ -40,7 +40,7 @@ HYPERPARAMETERS = {
     "test_sections": ["A06", "A07"],
     "num_classes": 10,
     "batch_size": 8,
-    "epochs": 30,
+    "epochs": 20,
     "learning_rate": 0.0000001,     # Hyperparameter Tuning: 0.00001 (first successfull model: loss going down, but overfitting) >> therefore: 0.0000001
     "seed": 42
 }

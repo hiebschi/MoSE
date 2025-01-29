@@ -67,6 +67,7 @@ def train_step(model: torch.nn.Module,
 
     # Define training loss and accuracy
     train_loss_epoch, train_acc_epoch = 0, 0
+    # train_class_wise_loss = {}  # loss for each class
 
     # loop through the batches
     for batch, (names, train_images, train_masks) in enumerate(data_loader):
@@ -94,9 +95,22 @@ def train_step(model: torch.nn.Module,
         loss_batch = loss_fn(train_logits, train_targets)
         train_loss_epoch += loss_batch.item() # accumulatively add up the loss >> added up loss in one epoch
 
-        # 2.2 Class-wise loss
+        # # 2.2 Class-wise loss
         
-        ###### SEE evaluation_utils
+        # for cls_idx in range(num_classes): # loop over all classes
+            
+        #     # creates masks with TRUE values for each pixel that actually (in reality) 
+        #     # belongs to the class with the index cls_idx
+        #     class_mask = (train_targets == cls_idx) # shape: [batch_size, 512, 512]; dtype: bool
+
+        #     if class_mask.sum() > 0:  # avoid division by zero -> if there are any pixels for this class, do this:
+                
+        #         class_loss = loss_batch[class_mask].mean()
+                
+        #         # save loss for this class
+        #         train_class_wise_loss[cls_idx] = class_loss.item()
+
+        #         print("Train Class-Wise Loss:", train_class_wise_loss)
 
 
         # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
