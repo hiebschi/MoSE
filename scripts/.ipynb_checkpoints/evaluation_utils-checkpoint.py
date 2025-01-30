@@ -106,66 +106,90 @@ def calculate_classwise_loss(train_logits, train_targets, num_classes):
         classwise_loss (list): list with loss per class.
     """
     
-    loss_without_weights_fn = F.binary_cross_entropy_with_logits
+    # initialize tensor for class-wise-loss
+    train_class_wise_loss = torch.zeros(num_classes)  
 
-    train_class_wise_loss = torch.zeros(num_classes)  # Class-wise loss
-
-    
-    for cls_idx in range(num_classes): # loop over all classes
-            
-        # creates masks with TRUE values for each pixel that actually (in reality) 
-        # belongs to the class with the index cls_idx
-        class_mask = (train_targets == cls_idx) # shape: [batch_size, H, W]; dtype: bool
-        # print(class_mask.shape, class_mask.dtype)
-
-        if class_mask.sum() > 0:  # avoid division by zero -> if there are any pixels for this class, do this:
-
-            print(f"cls_idx: {cls_idx}")
-            
-            # Isolate logits and targets for the current class
-            class_logits = train_logits[:, cls_idx, :, :]  # Shape: [batch_size, H, W]
-            # class_logits = class_logits.unsqueeze(1) 
-            #print("class_logits:", class_logits)
-            #print("class_logits:", class_logits.shape, class_logits.dtype)
-            
-            class_targets = (train_targets == cls_idx)
-            #print("train_targets.shape:", train_targets.shape)
-            #print("train_targets dtype:", train_targets.dtype)
-            #print("train_targets min/max:", train_targets.min(), train_targets.max())
-            #print("unique values in train_targets:", torch.unique(train_targets))
-            class_targets = class_targets.float()  
-            #print("class_targets:", class_targets)
-            #print("class_targets.shape:", class_targets.shape)
-            #print("class_targets dtype:", class_targets.dtype)
-            #print("class_targets min/max:", class_targets.min(), class_targets.max())
-            #print("unique values in class_targets:", torch.unique(class_targets))
-            
-            # Calculate loss for the current class
-            class_loss = loss_without_weights_fn(class_logits, class_targets)
-            train_class_wise_loss[cls_idx] += class_loss.item()
-            
-            print("Train Class-Wise Loss:", train_class_wise_loss)
-            # Train Class-Wise Loss: tensor([0.5633, 0.0000, 0.7312, 0.0000, 0.6060, 0.0000, 0.6437, 0.4540, 0.5208,
-            #0.0000])
-
-
-def calculate_classwise_loss2(train_logits, train_targets, num_classes):
-
-    train_class_wise_loss = torch.zeros(num_classes)  # Class-wise loss
-    
-    loss_fn = torch.nn.CrossEntropyLoss(reduction="none")  # no mean calculation for masking
+    # calculate loss for each individual pixel 
+    loss_fn = torch.nn.CrossEntropyLoss(reduction="none")  # reduction = none -> means no averaging of the loss over the entire batch (no mean calculation)
     loss = loss_fn(train_logits, train_targets)  # loss.shape: [batch_size, H, W]
-    print(loss)
-    
+
+    # iterate over all classes
     for cls_idx in range(num_classes):
-        # Maske für Klasse cls_idx
+        
+        # mask for class cls_idx
         mask = (train_targets == cls_idx).float()  # [batch_size, H, W]
-        class_loss = (loss * mask).sum() / (mask.sum() + 1e-6)  # Durchschnitt über die Maske
+        # all pixels belonging to the class cls_idx get the value 1, all others 0
+
+        # add up the loss values of the pixels in the class and calculate the mean value
+        class_loss = (loss * mask).sum() / (mask.sum() + 1e-6)  # + 1e-6 to prevent division by 0
+
+        # save loss values in a tensor
         train_class_wise_loss[cls_idx] += class_loss.item()
             
-        print("Train Class-Wise Loss:", train_class_wise_loss)
-        # Train Class-Wise Loss: tensor([1.8030, 2.9368, 2.0074, 0.0000, 2.2978, 0.0000, 2.1147, 0.0000, 0.0000,
-        # 0.0000])
+    print("Train Class-Wise Loss:", train_class_wise_loss)
+
+
+
+
+
+# OLD VERSION (WRONG)
+# def calculate_classwise_loss(train_logits, train_targets, num_classes):
+#     """
+#     Calculates loss per class.
+    
+#     Args:
+#         train_logits (torch.Tensor): raw model output with shape [batch_size, num_classes, H, W] and decimal numbers between -7 and 6
+#         train_targets (torch.Tensor): true/ ground truth targets with shape [batch_size, H, W] and integers between 0 and [num_classes - 1]
+#         num_classes (int): number of classes.
+    
+#     Returns:
+#         classwise_loss (list): list with loss per class.
+#     """
+    
+#     loss_without_weights_fn = F.binary_cross_entropy_with_logits
+
+#     train_class_wise_loss = torch.zeros(num_classes)  # Class-wise loss
+
+    
+#     for cls_idx in range(num_classes): # loop over all classes
+            
+#         # creates masks with TRUE values for each pixel that actually (in reality) 
+#         # belongs to the class with the index cls_idx
+#         class_mask = (train_targets == cls_idx) # shape: [batch_size, H, W]; dtype: bool
+#         # print(class_mask.shape, class_mask.dtype)
+
+#         if class_mask.sum() > 0:  # avoid division by zero -> if there are any pixels for this class, do this:
+
+#             print(f"cls_idx: {cls_idx}")
+            
+#             # Isolate logits and targets for the current class
+#             class_logits = train_logits[:, cls_idx, :, :]  # Shape: [batch_size, H, W]
+#             # class_logits = class_logits.unsqueeze(1) 
+#             #print("class_logits:", class_logits)
+#             #print("class_logits:", class_logits.shape, class_logits.dtype)
+            
+#             class_targets = (train_targets == cls_idx)
+#             #print("train_targets.shape:", train_targets.shape)
+#             #print("train_targets dtype:", train_targets.dtype)
+#             #print("train_targets min/max:", train_targets.min(), train_targets.max())
+#             #print("unique values in train_targets:", torch.unique(train_targets))
+#             class_targets = class_targets.float()  
+#             #print("class_targets:", class_targets)
+#             #print("class_targets.shape:", class_targets.shape)
+#             #print("class_targets dtype:", class_targets.dtype)
+#             #print("class_targets min/max:", class_targets.min(), class_targets.max())
+#             #print("unique values in class_targets:", torch.unique(class_targets))
+            
+#             # Calculate loss for the current class
+#             class_loss = loss_without_weights_fn(class_logits, class_targets)
+#             train_class_wise_loss[cls_idx] += class_loss.item()
+            
+#             print("Train Class-Wise Loss:", train_class_wise_loss)
+#             # Train Class-Wise Loss: tensor([0.5633, 0.0000, 0.7312, 0.0000, 0.6060, 0.0000, 0.6437, 0.4540, 0.5208,
+#             #0.0000])
+
+
+
 
 
 
