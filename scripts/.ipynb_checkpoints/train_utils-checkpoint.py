@@ -34,7 +34,7 @@ def print_train_time(start: float, end: float, device: torch.device = None):
 def train_step(model: torch.nn.Module,
                num_classes,
                data_loader: torch.utils.data.DataLoader,
-               loss_fn: torch.nn.Module,
+               loss_fn: torch.nn.Module, 
                optimizer: torch.optim.Optimizer,
                accuracy_fn,
                device: torch.device,
@@ -67,7 +67,6 @@ def train_step(model: torch.nn.Module,
 
     # Define training loss and accuracy
     train_loss_epoch, train_acc_epoch = 0, 0
-    # train_class_wise_loss = {}  # loss for each class
 
     # loop through the batches
     for batch, (names, train_images, train_masks) in enumerate(data_loader):
@@ -77,54 +76,47 @@ def train_step(model: torch.nn.Module,
         train_images, train_masks = train_images.to(device), train_masks.to(device)
 
         # 1. Forward pass
-        train_logits = model(train_images)
-        train_logits = train_logits.float()
+        train_logits = model(train_images) # model output
+        train_logits = train_logits.float() 
         # Shape: torch.Size([batch_size, num_classes, 512, 512])
         # Decimal numbers between -7 and 6
 
         # 2. Train loss and accuracy
 
-        # Masks shape: torch.Size([batch_size, num_classes, 512, 512]) 
-        # -> convert one-hot-encoded masks into class-index-format
+        # ground truth
+        # train_masks.shape: torch.Size([batch_size, num_classes, 512, 512]) 
+        # convert one-hot-encoded masks into class-index-format
         train_targets = torch.argmax(train_masks, dim=1) # index of the highest class
         train_targets = train_targets.long() 
         # .shape: [batch_size, 512, 512]
         # .dtype: torch.int64; Integers between 0 and [num_classes - 1]
 
         # 2.1 Loss per batch
+        # compare model output with ground truth data
         loss_batch = loss_fn(train_logits, train_targets)
         train_loss_epoch += loss_batch.item() # accumulatively add up the loss >> added up loss in one epoch
 
-        # # 2.2 Class-wise loss
+        # 2.2 Class-wise loss
         
-        # for cls_idx in range(num_classes): # loop over all classes
-            
-        #     # creates masks with TRUE values for each pixel that actually (in reality) 
-        #     # belongs to the class with the index cls_idx
-        #     class_mask = (train_targets == cls_idx) # shape: [batch_size, 512, 512]; dtype: bool
-
-        #     if class_mask.sum() > 0:  # avoid division by zero -> if there are any pixels for this class, do this:
-                
-        #         class_loss = loss_batch[class_mask].mean()
-                
-        #         # save loss for this class
-        #         train_class_wise_loss[cls_idx] = class_loss.item()
-
-        #         print("Train Class-Wise Loss:", train_class_wise_loss)
+        ###### SEE evaluation_utils
 
 
         # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
-        train_pred_probs = torch.sigmoid(train_logits) 
+        train_pred_probs = torch.sigmoid(train_logits) # model output
         # Shape: torch.Size([batch_size, num_classes, 512, 512])
         # Decimal numbers between 0 and 1
 
         # go from prediction probabilities to prediction labels (binary: 0 or 1)
-        train_preds = torch.round(train_pred_probs)
+        train_preds = torch.round(train_pred_probs) # model output
         # Shape: torch.Size([batch_size, num_classes, 512, 512])
         # Only 0 or 1
 
+         # convert one-hot-encoded predictions into class-index-format
+        train_preds_idxformat = torch.argmax(train_preds, dim=1) # model output
+
         # 2.3 Accuracy
-        train_acc_epoch += accuracy_fn(train_masks, train_preds) # added up accuracy in one epoch
+        # Compare true masks/targets with predicted masks/targets
+        train_acc_epoch += accuracy_fn(train_targets, train_preds_idxformat) # added up accuracy in one epoch
 
         # 3. Optimizer zero grad
         optimizer.zero_grad()
@@ -225,11 +217,6 @@ def test_step(model: torch.nn.Module,
             # 2.2 Accuracy
             test_acc_epoch += accuracy_fn(test_masks, test_preds) # added up accuracy in one epoch
 
-            # # Update class-wise loss
-            # for cls in range(num_classes):
-            #     test_loss_class[cls] += loss_fn(
-            #         test_pred_probs[:, cls, :, :], test_masks[:, cls, :, :]
-            #     ).item()
 
         # Calculate average loss and average accuracy of current epoch
         test_loss_epoch /= len(data_loader) # divide the added up loss through the number of batches

@@ -34,7 +34,7 @@ def print_train_time(start: float, end: float, device: torch.device = None):
 def train_step(model: torch.nn.Module,
                num_classes,
                data_loader: torch.utils.data.DataLoader,
-               loss_fn: torch.nn.Module,
+               loss_fn: torch.nn.Module, 
                optimizer: torch.optim.Optimizer,
                accuracy_fn,
                device: torch.device,
@@ -76,21 +76,23 @@ def train_step(model: torch.nn.Module,
         train_images, train_masks = train_images.to(device), train_masks.to(device)
 
         # 1. Forward pass
-        train_logits = model(train_images)
-        train_logits = train_logits.float()
+        train_logits = model(train_images) # model output
+        train_logits = train_logits.float() 
         # Shape: torch.Size([batch_size, num_classes, 512, 512])
         # Decimal numbers between -7 and 6
 
         # 2. Train loss and accuracy
 
+        # ground truth
         # train_masks.shape: torch.Size([batch_size, num_classes, 512, 512]) 
-        # -> convert one-hot-encoded masks into class-index-format
+        # convert one-hot-encoded masks into class-index-format
         train_targets = torch.argmax(train_masks, dim=1) # index of the highest class
         train_targets = train_targets.long() 
         # .shape: [batch_size, 512, 512]
         # .dtype: torch.int64; Integers between 0 and [num_classes - 1]
 
         # 2.1 Loss per batch
+        # compare model output with ground truth data
         loss_batch = loss_fn(train_logits, train_targets)
         train_loss_epoch += loss_batch.item() # accumulatively add up the loss >> added up loss in one epoch
 
@@ -100,17 +102,21 @@ def train_step(model: torch.nn.Module,
 
 
         # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
-        train_pred_probs = torch.sigmoid(train_logits) 
+        train_pred_probs = torch.sigmoid(train_logits) # model output
         # Shape: torch.Size([batch_size, num_classes, 512, 512])
         # Decimal numbers between 0 and 1
 
         # go from prediction probabilities to prediction labels (binary: 0 or 1)
-        train_preds = torch.round(train_pred_probs)
+        train_preds = torch.round(train_pred_probs) # model output
         # Shape: torch.Size([batch_size, num_classes, 512, 512])
         # Only 0 or 1
 
+         # convert one-hot-encoded predictions into class-index-format
+        train_preds_idxformat = torch.argmax(train_preds, dim=1) # model output
+
         # 2.3 Accuracy
-        train_acc_epoch += accuracy_fn(train_masks, train_preds) # added up accuracy in one epoch
+        # Compare true masks/targets with predicted masks/targets
+        train_acc_epoch += accuracy_fn(train_targets, train_preds_idxformat) # added up accuracy in one epoch
 
         # 3. Optimizer zero grad
         optimizer.zero_grad()

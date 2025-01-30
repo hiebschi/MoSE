@@ -5,6 +5,7 @@ Helper functions used for the evaluation of the trained segmentation model.
 """
 
 import torch
+from torch import nn
 
 # Classification metrics
 ####################################
@@ -13,61 +14,32 @@ import torch
 # No. 1: Overall accuracy
 ####################################
 
-def accuracy_fn(true_mask, pred_mask):
+def oa_accuracy_fn(true_targets, pred_targets):
     """
+    OVERALL ACCURACY
     Calculates overall accuracy per batch: correct classified pixels / all pixels.
     Compares the number of correct classifications to all the classifications to be made.
+    All arguments have to be in class-index-format!
 
     Args:
-        true_mask (torch.Tensor): ground truth/ true one-hot-encoded mask (shape: [batch_size, class channels, height, width]).
-        pred_mask (torch.Tensor): predicted one-hot-encoded mask (shape: [batch_size, class channels, height, width]).
+        true_targets (torch.Tensor): ground truth targets in class-index-format (shape: [batch_size, height, width]).
+        pred_targets (torch.Tensor): predicted targets in class-index-format (shape: [batch_size, height, width]).
 
     Returns:
         float: Pixel-wise accuracy as a percentage.
     """
 
     # Flatten the tensors to compute over all pixels
-    true_mask = true_mask.reshape(-1)  # Shape: [total_pixels] 
-    pred_mask = pred_mask.reshape(-1)  # Shape: [total_pixels]
+    true_targets = true_targets.view(-1)  # Shape: [total_pixels]
+    pred_targets = pred_targets.view(-1)  # Shape: [total_pixels]
 
     # Calculate the number of correctly classified pixels
-    correct = torch.eq(true_mask, pred_mask).sum().item()
+    correct = torch.eq(true_targets, pred_targets).sum().item()
 
     # Calculate the total number of pixels
-    total_pixels = true_mask.numel()
+    total_pixels = true_targets.numel()
 
-    # Compute accuracy
-    acc = (correct / total_pixels) * 100
-    return acc
-
-
-def oaccuracy_fn(true_mask, pred_mask):
-    """
-    Berechnet die pixelweise Accuracy pro Batch.
-
-    Args:
-        true_mask (torch.Tensor): Ground-Truth-Maske (shape: [batch_size, num_classes, height, width]).
-        pred_mask (torch.Tensor): Modellvorhersage als one-hot-encoded Tensor (shape: [batch_size, num_classes, height, width]).
-
-    Returns:
-        float: Pixel-genaue Genauigkeit in Prozent.
-    """
-
-    # One-hot-encoded Masken in Klassenlabels umwandeln (Index der höchsten Wahrscheinlichkeit)
-    true_labels = torch.argmax(true_mask, dim=1)  # Shape: [batch_size, height, width]
-    pred_labels = torch.argmax(pred_mask, dim=1)  # Shape: [batch_size, height, width]
-
-    # Flatten, um über alle Pixel zu berechnen
-    true_labels = true_labels.view(-1)  # Shape: [total_pixels]
-    pred_labels = pred_labels.view(-1)  # Shape: [total_pixels]
-
-    # Anzahl der korrekten Vorhersagen berechnen
-    correct = torch.eq(true_labels, pred_labels).sum().item()
-
-    # Gesamtanzahl der Pixel berechnen
-    total_pixels = true_labels.numel()
-
-    # Accuracy berechnen
+    # Compute overall accuracy
     acc = (correct / total_pixels) * 100
     return acc
 
@@ -118,25 +90,32 @@ def F1_per_class(true_mask, pred_mask, showprint = True):
 
 
 #############################################
-def calculate_classwise_loss(pred_probs, true_masks, loss_fn, num_classes):
+# Class-wise loss
+
+def calculate_classwise_loss(train_logits, train_targets, num_classes):
     """
     Calculates loss per class.
     
     Args:
-        pred_probs (torch.Tensor): prdiction probabilities [B, C, H, W].
-        true_masks (torch.Tensor): true masks [B, C, H, W].
-        loss_fn (torch.nn.Module): loss function
-        num_classes (int): number of classes
+        train_logits (torch.Tensor): raw model output with shape [batch_size, num_classes, H, W] and decimal numbers between -7 and 6
+        train_targets (torch.Tensor): true/ ground truth targets with shape [batch_size, H, W] and integers between 0 and [num_classes - 1]
+        num_classes (int): number of classes.
     
     Returns:
         classwise_loss (list): list with loss per class.
     """
+# loss_batch = loss_fn(train_logits, train_targets)
+    
+    loss_without_weights_fn = nn.CrossEntropyLoss().to(device)
 
+    
     for cls_idx in range(num_classes): # loop over all classes
             
             # creates masks with TRUE values for each pixel that actually (in reality) 
             # belongs to the class with the index cls_idx
             class_mask = (train_targets == cls_idx) # shape: [batch_size, 512, 512]; dtype: bool
+
+            
 
             if class_mask.sum() > 0:  # avoid division by zero -> if there are any pixels for this class, do this:
                 
