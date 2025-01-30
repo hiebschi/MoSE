@@ -4,8 +4,13 @@ Train utils
 Helper functions used for the training of the segmentation model.
 """
 
+import importlib
 import torch
 import torch.nn.functional as F
+
+# import evaluation_utils.py helper-functions script
+from scripts import evaluation_utils
+importlib.reload(evaluation_utils) # reload changes
 
 ############################################################
 # Timing function
@@ -97,9 +102,7 @@ def train_step(model: torch.nn.Module,
         train_loss_epoch += loss_batch.item() # accumulatively add up the loss >> added up loss in one epoch
 
         # 2.2 Class-wise loss
-        
-        ###### SEE evaluation_utils
-
+        class_wise_loss = evaluation_utils.calculate_classwise_loss(train_logits, train_targets, num_classes)
 
         # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
         train_pred_probs = torch.sigmoid(train_logits) # model output

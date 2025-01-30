@@ -104,26 +104,29 @@ def calculate_classwise_loss(train_logits, train_targets, num_classes):
     Returns:
         classwise_loss (list): list with loss per class.
     """
-# loss_batch = loss_fn(train_logits, train_targets)
     
-    loss_without_weights_fn = nn.CrossEntropyLoss().to(device)
+    loss_without_weights_fn = nn.CrossEntropyLoss()
+
+    train_class_wise_loss = torch.zeros(num_classes)  # Class-wise loss
 
     
     for cls_idx in range(num_classes): # loop over all classes
             
-            # creates masks with TRUE values for each pixel that actually (in reality) 
-            # belongs to the class with the index cls_idx
-            class_mask = (train_targets == cls_idx) # shape: [batch_size, 512, 512]; dtype: bool
+        # creates masks with TRUE values for each pixel that actually (in reality) 
+        # belongs to the class with the index cls_idx
+        class_mask = (train_targets == cls_idx) # shape: [batch_size, H, W]; dtype: bool
+        print(class_mask.shape, class_mask.dtype)
 
+        if class_mask.sum() > 0:  # avoid division by zero -> if there are any pixels for this class, do this:
+
+             # Isolate logits and targets for the current class
+            class_logits = train_logits[:, cls_idx, :, :]  # Shape: [batch_size, H, W]
+            class_targets = (train_targets == cls_idx).long()  # Binary mask for the current class
             
-
-            if class_mask.sum() > 0:  # avoid division by zero -> if there are any pixels for this class, do this:
-                
-                class_loss = loss_batch[class_mask].mean()
-                
-                # save loss for this class
-                train_class_wise_loss[cls_idx] = class_loss.item()
-
-                print("Train Class-Wise Loss:", train_class_wise_loss)
+            # Calculate loss for the current class
+            class_loss = loss_without_weights_fn(class_logits, class_targets)
+            train_class_wise_loss[cls_idx] += class_loss.item()
+            
+            print("Train Class-Wise Loss:", train_class_wise_loss)
 
 
