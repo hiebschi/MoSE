@@ -8,6 +8,14 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+
+
+
+
+########################
+# INSIDE TRAINING LOOP #
+########################
+
 # Classification metrics
 ####################################
 
@@ -44,11 +52,135 @@ def oa_accuracy_fn(true_targets, pred_targets):
     acc = (correct / total_pixels) * 100
     return acc
 
+
+
+#############################################
+# No. 2: Class-wise loss
+
+def calculate_classwise_loss(logits, targets, num_classes):
+    """
+    Calculates loss per class for one batch.
     
+    Args:
+        logits (torch.Tensor): raw model output with shape [batch_size, num_classes, H, W] and decimal numbers between -7 and 6
+        targets (torch.Tensor): true/ ground truth targets with shape [batch_size, H, W] and integers between 0 and [num_classes - 1]
+        num_classes (int): number of classes.
+    
+    Returns:
+        classwise_loss (torch.Tensor): Tensor with loss values per class.
+    """
+    
+    # initialize tensor for class-wise-loss
+    class_wise_loss = torch.zeros(num_classes)  
+
+    # calculate loss for each individual pixel 
+    loss_fn = torch.nn.CrossEntropyLoss(reduction="none")  # reduction = none -> means no averaging of the loss over the entire batch (no mean calculation)
+    loss = loss_fn(logits, targets)  # loss.shape: [batch_size, H, W]
+
+    # iterate over all classes
+    for cls_idx in range(num_classes):
+        
+        # mask for class cls_idx
+        mask = (targets == cls_idx).float()  # [batch_size, H, W]
+        # all pixels belonging to the class cls_idx get the value 1, all others 0
+
+        # add up the loss values of the pixels in the class and calculate the mean value
+        class_loss = (loss * mask).sum() / (mask.sum() + 1e-6)  # + 1e-6 to prevent division by 0
+
+        # save loss values in a tensor
+        class_wise_loss[cls_idx] += class_loss.item()
+            
+    return class_wise_loss
+
+
+
+
+#########################
+# OUTSIDE TRAINING LOOP #
+#########################
+
+
+
+# EIG GETRENNT!
+
+# MAKE_PREDICTIONS AND EVALUATE THESE PREDICTIONS!!!
+
+
 
 
 ##############################################
-# F1 Score / Dice similarity coefficient (DSC) per class
+# No. 3: Confusion Matrix
+
+
+import torch
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+
+def evaluate_model(model, test_loader, num_classes, device):
+    """
+    Evaluates a trained model on the test dataset and computes the confusion matrix.
+    
+    Args:
+        model (torch.nn.Module): Trained model.
+        test_loader (DataLoader): DataLoader for the test dataset.
+        num_classes (int): Number of classes.
+        device (str): Device to run the model on ("cpu" or "cuda").
+    
+    Returns:
+        None (plots the confusion matrix)
+    """
+    model.eval()  # Set model to evaluation mode
+    
+    all_preds = []
+    all_targets = []
+
+    with torch.no_grad():  # No gradient calculation needed
+        for images, targets in test_loader:
+            images, targets = images.to(device), targets.to(device)
+
+            # Get model predictions
+            logits = model(images)  # Shape: [batch_size, num_classes, H, W]
+            preds = torch.argmax(logits, dim=1)  # Shape: [batch_size, H, W]
+
+            # Store predictions and targets
+            all_preds.append(preds.cpu().numpy().flatten())  
+            all_targets.append(targets.cpu().numpy().flatten())
+
+    # Convert lists to numpy arrays
+    all_preds = np.concatenate(all_preds)
+    all_targets = np.concatenate(all_targets)
+
+    # Compute Confusion Matrix
+    cm = confusion_matrix(all_targets, all_preds, labels=np.arange(num_classes))
+
+    # Plot Confusion Matrix
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=np.arange(num_classes), yticklabels=np.arange(num_classes))
+    plt.xlabel("Predicted Label")
+    plt.ylabel("True Label")
+    plt.title("Confusion Matrix on Test Dataset")
+    plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##############################################
+# No. 4: F1 Score / Dice similarity coefficient (DSC) per class
 
 def F1_per_class(true_mask, pred_mask, showprint = True):
     """
@@ -90,43 +222,33 @@ def F1_per_class(true_mask, pred_mask, showprint = True):
 
 
 
-#############################################
-# Class-wise loss
 
-def calculate_classwise_loss(train_logits, train_targets, num_classes):
-    """
-    Calculates loss per class.
-    
-    Args:
-        train_logits (torch.Tensor): raw model output with shape [batch_size, num_classes, H, W] and decimal numbers between -7 and 6
-        train_targets (torch.Tensor): true/ ground truth targets with shape [batch_size, H, W] and integers between 0 and [num_classes - 1]
-        num_classes (int): number of classes.
-    
-    Returns:
-        classwise_loss (list): list with loss per class.
-    """
-    
-    # initialize tensor for class-wise-loss
-    train_class_wise_loss = torch.zeros(num_classes)  
 
-    # calculate loss for each individual pixel 
-    loss_fn = torch.nn.CrossEntropyLoss(reduction="none")  # reduction = none -> means no averaging of the loss over the entire batch (no mean calculation)
-    loss = loss_fn(train_logits, train_targets)  # loss.shape: [batch_size, H, W]
 
-    # iterate over all classes
-    for cls_idx in range(num_classes):
-        
-        # mask for class cls_idx
-        mask = (train_targets == cls_idx).float()  # [batch_size, H, W]
-        # all pixels belonging to the class cls_idx get the value 1, all others 0
 
-        # add up the loss values of the pixels in the class and calculate the mean value
-        class_loss = (loss * mask).sum() / (mask.sum() + 1e-6)  # + 1e-6 to prevent division by 0
 
-        # save loss values in a tensor
-        train_class_wise_loss[cls_idx] += class_loss.item()
-            
-    print("Train Class-Wise Loss:", train_class_wise_loss)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

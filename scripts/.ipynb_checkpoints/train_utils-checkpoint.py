@@ -8,6 +8,8 @@ import importlib
 import torch
 import torch.nn.functional as F
 
+from tqdm.auto import tqdm # for progress bar
+
 # import evaluation_utils.py helper-functions script
 from scripts import evaluation_utils
 importlib.reload(evaluation_utils) # reload changes
@@ -70,8 +72,9 @@ def train_step(model: torch.nn.Module,
     # Put model into training mode
     model.train()
 
-    # Define training loss and accuracy
+    # Initialize variables for training loss, class-wise-loss and accuracy per epoch
     train_loss_epoch, train_acc_epoch = 0, 0
+    train_class_wise_loss_epoch = torch.zeros(num_classes, device=device)  # class-wise loss for epoch
 
     # loop through the batches
     for batch, (names, train_images, train_masks) in enumerate(data_loader):
@@ -102,7 +105,8 @@ def train_step(model: torch.nn.Module,
         train_loss_epoch += loss_batch.item() # accumulatively add up the loss >> added up loss in one epoch
 
         # 2.2 Class-wise loss
-        class_wise_loss = evaluation_utils.calculate_classwise_loss(train_logits, train_targets, num_classes)
+        class_wise_loss_batch = evaluation_utils.calculate_classwise_loss(train_logits, train_targets, num_classes)
+        train_class_wise_loss_epoch += class_wise_loss_batch # sum up for all batches in this epoch
 
         # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
         train_pred_probs = torch.sigmoid(train_logits) # model output
@@ -114,7 +118,7 @@ def train_step(model: torch.nn.Module,
         # Shape: torch.Size([batch_size, num_classes, 512, 512])
         # Only 0 or 1
 
-         # convert one-hot-encoded predictions into class-index-format
+        # convert one-hot-encoded predictions into class-index-format
         train_preds_idxformat = torch.argmax(train_preds, dim=1) # model output
 
         # 2.3 Accuracy
@@ -142,14 +146,14 @@ def train_step(model: torch.nn.Module,
     # Calculate average loss and average accuracy of current epoch
     train_loss_epoch /= len(data_loader) # divide the added up loss through the number of batches
     # >> average loss of current epoch 
+    train_class_wise_loss_epoch /= len(data_loader)
+    # >> average loss per class of current epoch
     train_acc_epoch /= len(data_loader) # len(data_loader) = number of batches
     # >> average accuracy of current epoch
-    # train_loss_class /= len(data_loader)
-    # >> average loss per class of current epoch
 
     # Log training loop results
     print(f"Train loss: {train_loss_epoch:.5f} | Train accuracy: {train_acc_epoch:.2f}%")
-    # print(f"Train Class-wise Loss: {train_loss_class.tolist()}")
+    print(f"Train Class-wise Loss (class 0-9): {train_class_wise_loss_epoch}")
 
     return train_loss_epoch
 
@@ -189,7 +193,7 @@ def test_step(model: torch.nn.Module,
 
     # Define test loss and accuracy
     test_loss_epoch, test_acc_epoch = 0, 0
-    ###### !!!! test_loss_class = torch.zeros(num_classes, device=device)  # loss for every class
+    # test_class_wise_loss_epoch = torch.zeros(num_classes, device=device)  # class-wise loss for epoch
     
     # Turn on inference context manager
     with torch.inference_mode():
@@ -210,29 +214,120 @@ def test_step(model: torch.nn.Module,
 
             # 2.1 Loss
             test_loss_epoch += loss_fn(test_logits, test_targets) # accumulatively add up the loss >> added up loss in one epoch
+
+            # 2.2 Class-wise loss
+            class_wise_loss_batch = evaluation_utils.calculate_classwise_loss(test_logits, test_targets, num_classes)
+            test_class_wise_loss_epoch += class_wise_loss_batch # sum up for all batches in this epoch
             
             # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
             test_pred_probs = torch.sigmoid(test_logits)
         
             # go from prediction probabilities to prediction labels (binary: 0 or 1)
             test_preds = torch.round(test_pred_probs) 
+
+            # convert one-hot-encoded predictions into class-index-format
+            test_preds_idxformat = torch.argmax(test_preds, dim=1) # model output
             
-            # 2.2 Accuracy
-            test_acc_epoch += accuracy_fn(test_masks, test_preds) # added up accuracy in one epoch
+            # 2.3 Accuracy
+            # Compare true masks/targets with predicted masks/targets
+            test_acc_epoch += accuracy_fn(test_targets, test_preds_idxformat) # added up accuracy in one epoch
 
 
         # Calculate average loss and average accuracy of current epoch
         test_loss_epoch /= len(data_loader) # divide the added up loss through the number of batches
         # >> average loss of current epoch 
+        test_class_wise_loss_epoch /= len(data_loader)
+        # >> average loss per class of current epoch
         test_acc_epoch /= len(data_loader) # len(data_loader) = number of batches
         # >> average accuracy of current epoch
-        # test_loss_class /= len(data_loader)
-        # >> average loss per class of current epoch
         
         # Log testing loop results
         print(f"Test loss: {test_loss_epoch:.5f} | Test accuracy: {test_acc_epoch:.2f}%\n")
-        # print(f"Test Class-wise Loss: {test_loss_class.tolist()}")
+        print(f"Test Class-wise Loss (class 0-9): {train_class_wise_loss_epoch}")
 
         # (end of epoch loop)
 
         return test_loss_epoch
+
+
+############################################################
+# Making predictions (with trained model)
+
+def make_predictions(
+              model: torch.nn.Module,
+              num_classes,
+              data_loader: torch.utils.data.DataLoader,
+              loss_fn: torch.nn.Module,
+              accuracy_fn,
+              device: torch.device):
+    
+    # Send model to device
+    model.to(device)
+
+    # Put model into evaluation mode
+    model.eval()
+
+    y_preds = []
+
+# Turn on inference context manager
+    with torch.inference_mode():
+        for names, test_images, test_masks in data_loader:
+        # for batch_idx, (names, test_images, test_masks) in enumerate(data_loader):
+
+            # Send data to device
+            test_images, test_masks = test_images.to(device), test_masks.to(device)
+
+            # 1. Forward pass
+            test_logits = model(test_images) 
+
+            # 2. Test loss and accuracy
+
+            # Targets: convert one-hot-encoded masks into class-index-format
+            test_targets = torch.argmax(test_masks, dim=1) # index of the highest class
+            test_targets
+
+            # 2.1 Loss
+            test_loss_epoch += loss_fn(test_logits, test_targets) # accumulatively add up the loss >> added up loss in one epoch
+
+            # 2.2 Class-wise loss
+            class_wise_loss_batch = evaluation_utils.calculate_classwise_loss(test_logits, test_targets, num_classes)
+            test_class_wise_loss_epoch += class_wise_loss_batch # sum up for all batches in this epoch
+            
+            # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
+            test_pred_probs = torch.sigmoid(test_logits)
+        
+            # go from prediction probabilities to prediction labels (binary: 0 or 1)
+            test_preds = torch.round(test_pred_probs) 
+
+            # convert one-hot-encoded predictions into class-index-format
+            test_preds_idxformat = torch.argmax(test_preds, dim=1) # model output
+            
+            # 2.3 Accuracy
+            # Compare true masks/targets with predicted masks/targets
+    
+            test_acc_epoch += accuracy_fn(test_targets, test_preds_idxformat) # added up accuracy in one epoch
+
+    # Turn on inference context manager
+    with torch.inference_mode():
+        for names, test_images, test_masks in tqdm(data_loader, desc="Making predictions"):
+        
+        # Send data and targets to target device
+    X, y = X.to(device), y.to(device)
+    # Do the forward pass
+    y_logit = model_2(X)
+    # Turn predictions from logits -> prediction probabilities -> predictions labels
+    y_pred = torch.softmax(y_logit, dim=1).argmax(dim=1) # note: perform softmax on the "logits" dimension, not "batch" dimension (in this case we have a batch size of 32, so can perform on dim=1)
+    # Put predictions on CPU for evaluation
+    y_preds.append(y_pred.cpu())
+# Concatenate list of predictions into a tensor
+y_pred_tensor = torch.cat(y_preds)
+y_pred_tensor[:10], len(y_pred_tensor)
+
+
+
+
+
+
+
+
+    
