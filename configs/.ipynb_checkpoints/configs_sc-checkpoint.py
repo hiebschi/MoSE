@@ -29,7 +29,7 @@ DATA_DIR = {
     "targets": os.path.join(BASE_DIR, 'targets'),
     "codes": os.path.join(BASE_DIR, 'classes'),
     "labels": os.path.join(BASE_DIR, 'shapefiles'),
-    "saved_models": os.path.join(BASE_DIR, 'saved_models')
+    "saved_models": os.path.join('/home/sc.uni-leipzig.de/rf37uqip/MoSE/saved_models/')
 }
 
 ######################################################

@@ -13,8 +13,10 @@ import torch.nn.functional as F
 
 
 ########################
-# INSIDE TRAINING LOOP #
+# INSIDE TRAINING LOOP 
+# evaluate on-the-fly
 ########################
+
 
 # Classification metrics
 ####################################
@@ -57,7 +59,7 @@ def oa_accuracy_fn(true_targets, pred_targets):
 #############################################
 # No. 2: Class-wise loss
 
-def calculate_classwise_loss(logits, targets, num_classes):
+def calculate_classwise_loss(logits, targets, num_classes, device):
     """
     Calculates loss per class for one batch.
     
@@ -65,27 +67,29 @@ def calculate_classwise_loss(logits, targets, num_classes):
         logits (torch.Tensor): raw model output with shape [batch_size, num_classes, H, W] and decimal numbers between -7 and 6
         targets (torch.Tensor): true/ ground truth targets with shape [batch_size, H, W] and integers between 0 and [num_classes - 1]
         num_classes (int): number of classes.
+        device (torch.device): Device that compute is running on.
     
     Returns:
         classwise_loss (torch.Tensor): Tensor with loss values per class.
     """
     
     # initialize tensor for class-wise-loss
-    class_wise_loss = torch.zeros(num_classes)  
+    class_wise_loss = torch.zeros(num_classes).to(device)
 
     # calculate loss for each individual pixel 
     loss_fn = torch.nn.CrossEntropyLoss(reduction="none")  # reduction = none -> means no averaging of the loss over the entire batch (no mean calculation)
-    loss = loss_fn(logits, targets)  # loss.shape: [batch_size, H, W]
+    loss = loss_fn(logits, targets).to(device)  # loss.shape: [batch_size, H, W]
 
     # iterate over all classes
     for cls_idx in range(num_classes):
         
         # mask for class cls_idx
-        mask = (targets == cls_idx).float()  # [batch_size, H, W]
+        mask = (targets == cls_idx).float().to(device)  # [batch_size, H, W]
         # all pixels belonging to the class cls_idx get the value 1, all others 0
 
         # add up the loss values of the pixels in the class and calculate the mean value
         class_loss = (loss * mask).sum() / (mask.sum() + 1e-6)  # + 1e-6 to prevent division by 0
+        class_loss = class_loss.to(device)
 
         # save loss values in a tensor
         class_wise_loss[cls_idx] += class_loss.item()
@@ -96,7 +100,8 @@ def calculate_classwise_loss(logits, targets, num_classes):
 
 
 #########################
-# OUTSIDE TRAINING LOOP #
+# OUTSIDE TRAINING LOOP 
+# evaluate trained model
 #########################
 
 
@@ -110,6 +115,8 @@ def calculate_classwise_loss(logits, targets, num_classes):
 
 ##############################################
 # No. 3: Confusion Matrix
+# AND
+# No. 4: F1 Score
 
 
 import torch
@@ -118,9 +125,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
-def evaluate_model(model, test_loader, num_classes, device):
+def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, device):
     """
-    Evaluates a trained model on the test dataset and computes the confusion matrix.
+    Evaluates a trained model on the entire/ a part of test dataset and computes the confusion matrix. 
+    Additionaly it calculates the overall accuracy and if desired also the F1-Score.
     
     Args:
         model (torch.nn.Module): Trained model.
@@ -131,35 +139,58 @@ def evaluate_model(model, test_loader, num_classes, device):
     Returns:
         None (plots the confusion matrix)
     """
-    model.eval()  # Set model to evaluation mode
     
-    all_preds = []
-    all_targets = []
+    model.eval()  # Set model to evaluation mode
 
-    with torch.no_grad():  # No gradient calculation needed
-        for images, targets in test_loader:
-            images, targets = images.to(device), targets.to(device)
+    test_acc = 0
+    all_test_preds = []
+    all_test_targets = []
+
+    with torch.no_grad():  # no gradient calculation needed
+        for names, test_images, test_masks in test_loader:
+
+            # Send data to device
+            test_images, test_masks = test_images.to(device), test_masks.to(device)
+
+            # Targets: convert one-hot-encoded masks into class-index-format
+            test_targets = torch.argmax(test_masks, dim=1) # index of the highest class
 
             # Get model predictions
-            logits = model(images)  # Shape: [batch_size, num_classes, H, W]
-            preds = torch.argmax(logits, dim=1)  # Shape: [batch_size, H, W]
+            # Do the forward pass
+            test_logits = model(test_images) 
 
-            # Store predictions and targets
-            all_preds.append(preds.cpu().numpy().flatten())  
-            all_targets.append(targets.cpu().numpy().flatten())
+            # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
+            test_pred_probs = torch.sigmoid(test_logits)
 
-    # Convert lists to numpy arrays
-    all_preds = np.concatenate(all_preds)
-    all_targets = np.concatenate(all_targets)
+            # go from prediction probabilities to prediction labels (binary: 0 or 1)
+            test_preds = torch.round(test_pred_probs)
 
-    # Compute Confusion Matrix
-    cm = confusion_matrix(all_targets, all_preds, labels=np.arange(num_classes))
+            # convert one-hot-encoded predictions into class-index-format
+            test_preds_idxformat = torch.argmax(test_preds, dim=1) # model output
+
+            # Accuracy
+            # Compare true masks/targets with predicted masks/targets
+            test_acc += accuracy_fn(test_targets, test_preds_idxformat) # added up accuracy
+
+            # store predictions and targets
+            all_test_preds.append(test_preds_idxformat.cpu().numpy().flatten())  
+            all_test_targets.append(test_targets.cpu().numpy().flatten())
+
+    # convert lists to numpy arrays
+    all_test_preds = np.concatenate(all_test_preds)
+    all_test_targets = np.concatenate(all_test_targets)
+
+    test_acc /= len(test_loader) # len(test_loader)
+    print(f"Test accuracy: {test_acc:.2f}%\n")
+
+    # compute Confusion Matrix
+    cm = confusion_matrix(all_test_targets, all_test_preds, labels=np.arange(num_classes))
 
     # Plot Confusion Matrix
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=np.arange(num_classes), yticklabels=np.arange(num_classes))
-    plt.xlabel("Predicted Label")
-    plt.ylabel("True Label")
+    plt.xlabel("Predicted Class per Pixel")
+    plt.ylabel("True Class per Pixel")
     plt.title("Confusion Matrix on Test Dataset")
     plt.show()
 
