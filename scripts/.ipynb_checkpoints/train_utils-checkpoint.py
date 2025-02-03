@@ -61,7 +61,8 @@ def train_step(model: torch.nn.Module,
         showprint (bool) = True: Whether the results should be printed or should not.
 
     Returns: 
-         [torch.float]: Train loss value of current epoch.
+         train_loss_epoch (torch.float): Train loss value of current epoch.
+         train_class_wise_loss_epoch: Train class-wise loss value of current epoch.
     """
 
     # (start of epoch loop)
@@ -155,7 +156,7 @@ def train_step(model: torch.nn.Module,
     print(f"Train loss: {train_loss_epoch:.5f} | Train accuracy: {train_acc_epoch:.2f}%")
     print(f"Train Class-wise Loss (class 0-9): {train_class_wise_loss_epoch}")
 
-    return train_loss_epoch
+    return (train_loss_epoch, train_class_wise_loss_epoch)
 
 
 
@@ -180,7 +181,8 @@ def test_step(model: torch.nn.Module,
         device (torch.device): Device that compute is running on.
         
     Returns: 
-         [torch.float]: Train loss value of current epoch.
+         test_loss_epoch (torch.float): Test loss value of current epoch.
+         test_class_wise_loss_epoch: Test class-wise loss value of current epoch.
     """
 
     # (inside of the epoch loop)
@@ -246,7 +248,7 @@ def test_step(model: torch.nn.Module,
 
         # (end of epoch loop)
 
-        return test_loss_epoch
+        return (test_loss_epoch, test_class_wise_loss_epoch)
 
 
 

@@ -4,19 +4,20 @@ Evaluation utils
 Helper functions used for the evaluation of the trained segmentation model.
 """
 
+# packages
 import torch
 from torch import nn
 import torch.nn.functional as F
-
-
-
-
+import sklearn
+from sklearn.metrics import confusion_matrix
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 ########################
 # INSIDE TRAINING LOOP 
 # evaluate on-the-fly
 ########################
-
 
 # Classification metrics
 ####################################
@@ -57,7 +58,45 @@ def oa_accuracy_fn(true_targets, pred_targets):
 
 
 #############################################
-# No. 2: Class-wise loss
+# No. 2: Class-wise accuracy
+
+def class_wise_acc_fn(true_targets, pred_targets, num_classes):
+    """
+    CLASS-WISE ACCURACY
+    Calculates class-wise accuracy per batch.
+
+    Args:
+        true_targets (torch.Tensor): ground truth targets in class-index-format (shape: [batch_size, height, width]).
+        pred_targets (torch.Tensor): predicted targets in class-index-format (shape: [batch_size, height, width]).
+        num_classes (int): Number of classes.
+
+    Returns:
+        class_acc (list): list of accuracy values per class.
+    """
+
+     # Flatten the tensors to compute over all pixels and covert into numpy-arrays
+    true_targets = true_targets.cpu().numpy().flatten() # Shape: [total_pixels]
+    pred_targets = pred_targets.cpu().numpy().flatten()  # Shape: [total_pixels]
+
+    # Calculate the confusion matrix
+    cm = confusion_matrix(true_targets, pred_targets, labels=np.arange(num_classes))
+
+    # Calculate accuracy for each class
+    class_acc = []
+    for i in range(num_classes):
+        correct = cm[i, i]  # correct classified samples of class i
+        total = cm[i, :].sum()  # total number of samples of class i
+        if total == 0:
+            class_acc.append(0.0)  # avoid division with zero
+        else:
+            class_acc.append(correct / total)
+
+    return class_acc
+
+
+
+#############################################
+# No. 3: Class-wise loss
 
 def calculate_classwise_loss(logits, targets, num_classes, device):
     """
@@ -105,25 +144,10 @@ def calculate_classwise_loss(logits, targets, num_classes, device):
 #########################
 
 
-
-# EIG GETRENNT!
-
-# MAKE_PREDICTIONS AND EVALUATE THESE PREDICTIONS!!!
-
-
-
-
 ##############################################
-# No. 3: Confusion Matrix
+# No. 4: Confusion Matrix
 # AND
-# No. 4: F1 Score
-
-
-import torch
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix
+# No. 5: F1 Score
 
 def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, device):
     """
@@ -195,6 +219,9 @@ def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, d
     plt.show()
 
 
+    # 
+
+
 
 
 
@@ -211,7 +238,7 @@ def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, d
 
 
 ##############################################
-# No. 4: F1 Score / Dice similarity coefficient (DSC) per class
+# No. 6: F1 Score / Dice similarity coefficient (DSC) per class
 
 def F1_per_class(true_mask, pred_mask, showprint = True):
     """

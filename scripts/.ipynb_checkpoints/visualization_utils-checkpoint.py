@@ -33,3 +33,31 @@ def norm_plot_patch(patch):
     plt.show()
 
 
+
+# plot class-wise loss for a specific epoch
+
+def plot_classwise_loss(epoch_num, class_wise_losses_per_epoch, num_classes):
+    """
+    Plots a bar chart of the class-wise loss for a specific epoch.
+    
+    Args:
+        epoch_num (int): Epoch number to visualize.
+        class_wise_losses_per_epoch (list of numpy arrays): Class-wise losses per epoch.
+        num_classes (int): Number of classes.
+    """
+    if epoch_num >= len(class_wise_losses_per_epoch):
+        print(f"Epoch {epoch_num} is out of range! Max epoch: {len(class_wise_losses_per_epoch) - 1}")
+        return
+
+    class_losses = class_wise_losses_per_epoch[epoch_num]  # loss values of chosen epoch 
+    
+    plt.figure(figsize=(8, 5))
+    plt.bar(np.arange(num_classes), class_losses, color="skyblue")
+    plt.xlabel("Class Index")
+    plt.ylabel("Loss")
+    plt.title(f"Class-wise Loss for Epoch {epoch_num}")
+    plt.xticks(np.arange(num_classes))
+    plt.show()
+
+
+
