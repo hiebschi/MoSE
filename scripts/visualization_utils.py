@@ -40,7 +40,7 @@ def norm_plot_patch(patch, patch_name):
 ##################################
 # Plot mask of class-index-format
 
-def plot_mask_idxformat(mask_idxformat, mask_name, reversed_codes):
+def plot_mask_idxformat(mask_idxformat, mask_name, reversed_codes, custom_colors):
 
     """
     Visualizes a ground truth mask.
@@ -49,24 +49,11 @@ def plot_mask_idxformat(mask_idxformat, mask_name, reversed_codes):
         mask_idxformat (numpy.ndarray): ground truth mask in class-index format.
         mask_name (str): name of the mask.
         reversed_codes (list): list of class names corresponding to class indices.
+        custom_colors (list): list of color definitions for each class.
     
     Returns: 
         Plot of one mask.
     """
-
-    # customized colors for each class
-    custom_colors = [
-        (0.12, 0.47, 0.61),  # 0: blue
-        (0.84, 0.15, 0.16),  # 1: RED (not existent)
-        (0.40, 0.34, 0.29),  # 2: darkbrown
-        (0.84, 0.15, 0.16),  # 3: RED (not existent)
-        (0.65, 0.44, 0.29),  # 4: brown
-        (0.84, 0.15, 0.16),  # 5: RED (not existent)
-        (0.94, 0.74, 0.13),  # 6: orange
-        (0.84, 0.15, 0.16),  # 7: RED (not existent)
-        (0.74, 0.74, 0.13),  # 8: olive
-        (0.54, 0.74, 0.13),  # 9: green
-    ]  
 
     # ensure that the number of colors matches the classes
     assert len(custom_colors) >= len(reversed_codes), "not enough colors!"
@@ -95,56 +82,52 @@ def plot_mask_idxformat(mask_idxformat, mask_name, reversed_codes):
 ###############################################################
 # visualize RGB patch, true mask and predicted mask
 
-def visualize_prediction(batch_idx, patch_idx, test_loader, model, device, reversed_codes):
+def visualize_prediction(patch_name, test_loader, model, device, reversed_codes, custom_colors):
     """
     Visualizes the RGB image, ground truth mask, and predicted mask from a batch.
     
-    Parameters:
-        batch_idx (int): index of the batch to visualize.
-        patch_idx (int): index of the patch within the batch.
+    Args:
+        patch_name (str): name of the desired patch.
         test_loader (DataLoader): PyTorch DataLoader containing test images and masks.
         model (torch.nn.Module): trained model for prediction.
         device (torch.device): device to perform computations on.
         reversed_codes (list): list of class names corresponding to class indices.
+        custom_colors (list): list of color definitions for each class.
     """
-    # retrieve batch
+    
+    found = False 
+    
+    # search for batch containing desired patch
     for i, (names, images, masks) in enumerate(test_loader):
-        if i == batch_idx:
+        if patch_name in names:  # check if patch is contained
+            patch_idx = names.index(patch_name)  # index of the patch in the batch
+
+            # load data to device
             images, masks = images.to(device), masks.to(device)
-            
-            patch_name = names[patch_idx]
-            print("Visualizing patch:", patch_name)
-            
-            # extract image and masks
+
+            # convert and normalize rgb image
             t_image = images[patch_idx].permute(1, 2, 0).cpu().numpy()
+            t_image = (t_image - t_image.min()) / (t_image.max() - t_image.min())  
+
+            # convert mask into class-index format
             t_true_mask = masks[patch_idx].cpu().numpy().argmax(axis=0)
-            
-            # model prediction
-            with torch.no_grad():
-                t_logits = model(images[patch_idx].unsqueeze(dim=0))
-                t_pred_mask = torch.sigmoid(t_logits).squeeze().cpu().numpy().argmax(axis=0)
-            
-            break
-    else:
-        print("Batch index out of range!")
+
+            # create prediction
+            t_logits = model(images[patch_idx].unsqueeze(dim=0))
+            t_pred_mask = torch.round(torch.sigmoid(t_logits)).cpu().detach().squeeze().numpy().argmax(axis=0)
+            # print(t_pred_mask.shape)
+            # print(np.unique(t_pred_mask))
+
+            found = True
+            break  # stop the search when the correct batch has been found
+
+    if not found:
+        print(f"Patch '{patch_name}' has not been found!")
         return
     
     # normalize RGB image
     t_image = (t_image - t_image.min()) / (t_image.max() - t_image.min())
     
-    # define custom colors
-    custom_colors = [
-        (0.12, 0.47, 0.61),  # 0: blue
-        (0.84, 0.15, 0.16),  # 1: RED (not existent)
-        (0.40, 0.34, 0.29),  # 2: darkbrown
-        (0.84, 0.15, 0.16),  # 3: RED (not existent)
-        (0.65, 0.44, 0.29),  # 4: brown
-        (0.84, 0.15, 0.16),  # 5: RED (not existent)
-        (0.94, 0.74, 0.13),  # 6: orange
-        (0.84, 0.15, 0.16),  # 7: RED (not existent)
-        (0.74, 0.74, 0.13),  # 8: olive
-        (0.54, 0.74, 0.13),  # 9: green
-    ]
     cmap = mcolors.ListedColormap(custom_colors[:len(reversed_codes)])
     
     # plot images and masks
@@ -171,8 +154,6 @@ def visualize_prediction(batch_idx, patch_idx, test_loader, model, device, rever
     
     plt.tight_layout()
     plt.show()
-
-
 
 
 
