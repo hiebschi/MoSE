@@ -41,7 +41,8 @@ HYPERPARAMETERS = {
     "num_classes": 10,
     "batch_size": 8,
     "epochs": 30,
-    "learning_rate": 1e-5,     # Hyperparameter Tuning: 0.00001 resp. 1e-5 (first successfull model: loss going down, but overfitting) >> therefore: 1e-6 and 1e-7
+    "learning_rate": 1e-6,     # Hyperparameter Tuning: 1e-5 (first successfull model: loss going down, but overfitting) 
+                                # >> therefore: 1e-6 and 1e-7 # 1e-6 is the best
     "seed": 42
 }
 

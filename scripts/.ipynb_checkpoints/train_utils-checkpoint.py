@@ -153,8 +153,8 @@ def train_step(model: torch.nn.Module,
     # >> average accuracy of current epoch
 
     # Log training loop results
-    print(f"Train loss: {train_loss_epoch:.5f} | Train accuracy: {train_acc_epoch:.2f}%")
-    print(f"Train Class-wise Loss (class 0-9): {train_class_wise_loss_epoch}")
+    print(f"\nTrain loss: {train_loss_epoch:.5f} | Train accuracy: {train_acc_epoch:.2f}%")
+    print(f"Train Class-wise Loss (class 0-9): {train_class_wise_loss_epoch}\n")
 
     return (train_loss_epoch, train_class_wise_loss_epoch)
 
@@ -243,8 +243,8 @@ def test_step(model: torch.nn.Module,
         # >> average accuracy of current epoch
         
         # Log testing loop results
-        print(f"Test loss: {test_loss_epoch:.5f} | Test accuracy: {test_acc_epoch:.2f}%\n")
-        print(f"Test Class-wise Loss (class 0-9): {test_class_wise_loss_epoch}")
+        print(f"Test loss: {test_loss_epoch:.5f} | Test accuracy: {test_acc_epoch:.2f}%")
+        print(f"Test Class-wise Loss (class 0-9): {test_class_wise_loss_epoch}\n")
 
         # (end of epoch loop)
 

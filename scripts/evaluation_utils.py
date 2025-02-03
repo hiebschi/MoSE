@@ -13,6 +13,7 @@ from sklearn.metrics import confusion_matrix
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
 
 ########################
 # INSIDE TRAINING LOOP 
@@ -58,45 +59,7 @@ def oa_accuracy_fn(true_targets, pred_targets):
 
 
 #############################################
-# No. 2: Class-wise accuracy
-
-def class_wise_acc_fn(true_targets, pred_targets, num_classes):
-    """
-    CLASS-WISE ACCURACY
-    Calculates class-wise accuracy per batch.
-
-    Args:
-        true_targets (torch.Tensor): ground truth targets in class-index-format (shape: [batch_size, height, width]).
-        pred_targets (torch.Tensor): predicted targets in class-index-format (shape: [batch_size, height, width]).
-        num_classes (int): Number of classes.
-
-    Returns:
-        class_acc (list): list of accuracy values per class.
-    """
-
-     # Flatten the tensors to compute over all pixels and covert into numpy-arrays
-    true_targets = true_targets.cpu().numpy().flatten() # Shape: [total_pixels]
-    pred_targets = pred_targets.cpu().numpy().flatten()  # Shape: [total_pixels]
-
-    # Calculate the confusion matrix
-    cm = confusion_matrix(true_targets, pred_targets, labels=np.arange(num_classes))
-
-    # Calculate accuracy for each class
-    class_acc = []
-    for i in range(num_classes):
-        correct = cm[i, i]  # correct classified samples of class i
-        total = cm[i, :].sum()  # total number of samples of class i
-        if total == 0:
-            class_acc.append(0.0)  # avoid division with zero
-        else:
-            class_acc.append(correct / total)
-
-    return class_acc
-
-
-
-#############################################
-# No. 3: Class-wise loss
+# No. 2: Class-wise loss
 
 def calculate_classwise_loss(logits, targets, num_classes, device):
     """
@@ -145,20 +108,20 @@ def calculate_classwise_loss(logits, targets, num_classes, device):
 
 
 ##############################################
-# No. 4: Confusion Matrix
-# AND
-# No. 5: F1 Score
+# No. 1: Confusion Matrix with overall and class-wise accuracy.
+# No. 2: F1 Score
 
-def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, device):
+def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, device, F1_analysis = False):
     """
     Evaluates a trained model on the entire/ a part of test dataset and computes the confusion matrix. 
-    Additionaly it calculates the overall accuracy and if desired also the F1-Score.
+    Additionaly it calculates the overall and class-wise accuracy and if desired also the F1-Score.
     
     Args:
         model (torch.nn.Module): Trained model.
-        test_loader (DataLoader): DataLoader for the test dataset.
+        test_loader (DataLoader): DataLoader for the test data set.
         num_classes (int): Number of classes.
         device (str): Device to run the model on ("cpu" or "cuda").
+        F1_analysis (bool): If true, the F1 score is calculated with the test data set.
     
     Returns:
         None (plots the confusion matrix)
@@ -204,11 +167,27 @@ def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, d
     all_test_preds = np.concatenate(all_test_preds)
     all_test_targets = np.concatenate(all_test_targets)
 
+    print("Unique classes in true targets:", np.unique(all_test_targets))
+    print("Unique classes in predicted targets:", np.unique(all_test_preds), "\n")
+
     test_acc /= len(test_loader) # len(test_loader)
-    print(f"Test accuracy: {test_acc:.2f}%\n")
+    print(f"Test accuracy: {test_acc:.2f}%")
 
     # compute Confusion Matrix
     cm = confusion_matrix(all_test_targets, all_test_preds, labels=np.arange(num_classes))
+
+    # calculate accuracy for each class
+    test_class_acc = []
+    for i in range(num_classes):
+        correct = cm[i, i]  # correct classified samples of class i
+        total = cm[i, :].sum()  # total number of samples of class i
+        if total == 0:
+            test_class_acc.append(-999) # avoid division with zero
+        else:
+            test_class_acc.append(correct / total)
+
+    # Print test class-wise accuracy values
+    print(f"Test class-wise accuracies: {test_class_acc}\n")
 
     # Plot Confusion Matrix
     plt.figure(figsize=(8, 6))
@@ -218,8 +197,30 @@ def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, d
     plt.title("Confusion Matrix on Test Dataset")
     plt.show()
 
+    # F1-Score Analysis
+    from sklearn.metrics import f1_score
 
-    # 
+    if F1_analysis:
+        
+        class_wise_f1 = f1_score(all_test_targets, all_test_preds, average=None)  # Class-wise F1-score (F1-Score for each class)
+
+        macro_f1 = f1_score(all_test_targets, all_test_preds, average="macro")  # Macro F1-score (calculate metrics for each label, and find their unweighted mean; does not take label imbalance into account)
+
+        # print(f"Class-wise F1-Scores: {class_wise_f1}")
+
+        # Create table with F1-Scores
+        f1_table = pd.DataFrame({
+            "Class": range(len(class_wise_f1)),  # class indices
+            "F1-Score": np.round(class_wise_f1, 4)  # rounded F1-Scores
+        })
+
+        print("Class-wise F1-Scores:")
+        print(f1_table)
+        
+        print(f"\nMacro F1-Score: {np.round(macro_f1, 4)}")
+
+
+
 
 
 
@@ -281,10 +282,41 @@ def F1_per_class(true_mask, pred_mask, showprint = True):
 
 
 
+# #############################################
+# # No. 2: Class-wise accuracy
 
+# def class_wise_acc_fn(true_targets, pred_targets, num_classes):
+#     """
+#     CLASS-WISE ACCURACY
+#     Calculates class-wise accuracy per batch.
 
+#     Args:
+#         true_targets (torch.Tensor): ground truth targets in class-index-format (shape: [batch_size, height, width]).
+#         pred_targets (torch.Tensor): predicted targets in class-index-format (shape: [batch_size, height, width]).
+#         num_classes (int): Number of classes.
 
+#     Returns:
+#         class_acc (list): list of accuracy values per class.
+#     """
 
+#      # Flatten the tensors to compute over all pixels and covert into numpy-arrays
+#     true_targets = true_targets.cpu().numpy().flatten() # Shape: [total_pixels]
+#     pred_targets = pred_targets.cpu().numpy().flatten()  # Shape: [total_pixels]
+
+#     # Calculate the confusion matrix
+#     cm = confusion_matrix(true_targets, pred_targets, labels=np.arange(num_classes))
+
+#     # Calculate accuracy for each class
+#     class_acc = []
+#     for i in range(num_classes):
+#         correct = cm[i, i]  # correct classified samples of class i
+#         total = cm[i, :].sum()  # total number of samples of class i
+#         if total == 0:
+#             class_acc.append(0.0)  # avoid division with zero
+#         else:
+#             class_acc.append(correct / total)
+
+#     return class_acc
 
 
 
