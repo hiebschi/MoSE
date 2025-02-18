@@ -55,89 +55,28 @@ def has_mask(patch_name, masks_dir):
     return os.path.exists(mask_path) # check if path exists
 
 
-
-# helper-function to load a single .npz file and extract the first array
-# function for undoing the .npz-compression! unzip!
-
-def load_npz_patch(patch_npz_name, patches_npz_dir):
-
-    """ 
-    Load patch .npz file and undo the .npz compression by extracting the first array and returning it as npy-array.
-
-    Args:
-        patch_npz_name (str): Name of the patch .npz file.
-        patches_npz_dir (str): Directory where patch .npz files are stored.
-
-    Returns:
-        Unzipped patch image data as npy-array.
-    """
-
-    patch_npz_path = os.path.join(patches_npz_dir, patch_npz_name) # path to .npz-file
-
-    try:
-        with np.load(patch_npz_path, mmap_mode='r') as data:  # Load the patch .npz-file
-        # use memory mapping (mmap_mode='r') for more efficient loading
-        # (without loading the total content into RAM)
-
-            array_keys = list(data.keys())  # Get all keys (array names)
-
-            if len(array_keys) > 1:  # Print a warning if multiple arrays are present
-                print(f".npz-file '{patch_npz_name}' contains {len(array_keys)} arrays: {array_keys}")
-
-            patch_name = patch_npz_name.replace(".npz", "")  # Remove '.npz' to get the base name
-
-            patch_image = data[array_keys[0]]  # Extract the first array
-
-
-            return (patch_name, patch_image)
-
-    except Exception as e:  # Handle any errors during file loading
-        print(f"Error loading {patch_npz_name}: {e}")
-        return None
-
-
-def parallel_load_npz(patches_npz_list, patches_npz_dir):
-    """
-    For parallel loading and unzipping of the .npz-patches.
-    """
-
-    with ThreadPoolExecutor() as executor:
-        results = list(executor.map(lambda fname: load_npz_patch(fname, patches_npz_dir), patches_npz_list))
-    
-    return [res for res in results if res is not None]  # Filter out failed loads
-
-
-
 # Dataset
 
 class PatchDataset(Dataset):
-    def __init__(self, patches_list, patches_dir, masks_dir=None, transform=None, preload = False): 
-        # initializes the dataset by saving list of .npz-patches, the directory of the .npz-patches and the masks 
-        # and optional transformations and preloads
+    def __init__(self, patches_list, patches_dir, masks_dir=None, transform=None, filter_class=None): 
+        # initializes the dataset by saving list of .npy-patches, the directory of the .npy-patches and the masks 
+        # and performs optional transformations or filters one specific class
 
         """
         Custom Dataset for loading .npy patches and optional masks.
         Args:
             patches_list (list): List of the patch .npy-files.
             patches_dir (str): Directory containing patch .npy-files.
-            masks_dir (str): Directory containing mask.npy files (optional).
+            masks_dir (str): Directory containing mask.npy-files (optional).
             transform (callable, optional): Transformation to be applied to the data.
-            preload (bool): Whether to preload all patches into memory.
+            filter_class (int): Class to filter masks by (optional)
         """
 
         self.patches_list = patches_list
         self.patches_dir = patches_dir
         self.masks_dir = masks_dir
         self.transform = transform
-        self.preload = preload
-
-        # ONLY FOR COMPRESSED .npy.NPZ-PATCHES (see commit: "!UNZIP AND CHANGE FUNCTIONS TO .NPY!")
-        # if preload:
-        #     # Parallel loading of patches using ThreadPoolExecutor
-        #     print("Preloading patches...")
-        #     self.preloaded_patches = parallel_load_npz(patches_npz_list, patches_npz_dir)
-        # else:
-        #     self.preloaded_patches = None
+        self.filter_class = filter_class
 
     def __len__(self):
 
@@ -158,13 +97,6 @@ class PatchDataset(Dataset):
             tuple: A tuple containing the patch and its mask.
         """
 
-        # if self.preload and self.preloaded_patches is not None:
-        #     # Use preloaded patch
-        #     patch_name, patch = self.preloaded_patches[idx] # save patch name and patch image data
-        # else:
-        #     # Load .npz-patch dynamically with patch loading function (see 4.1)
-        #     patch_name, patch = load_npz_patch(self.patches_npz_list[idx], self.patches_npz_dir) # save patch name and patch image data
-
         # Load .npy-patch dynamically
         patch_name = self.patches_list[idx]
         patch_path = os.path.join(self.patches_dir, patch_name)
@@ -174,15 +106,32 @@ class PatchDataset(Dataset):
         patch = torch.tensor(patch, dtype=torch.float32)
 
         # Load the mask if available
-        if self.masks_dir:
+        if self.masks_dir:   
             mask_path = os.path.join(self.masks_dir, patch_name.replace(".npy", "_mask.npy"))
-            if os.path.exists(mask_path):
+            
+            if os.path.exists(mask_path):   
                 mask = np.load(mask_path) # load mask
                 mask = torch.tensor(mask, dtype=torch.float32) # convert mask into Tensor and change datatype to float32
+
+                if self.filter_class is not None:
+                    # Umwandeln der one-hot Maske in eine Label-Map
+                    label_map = torch.argmax(mask, dim=0)  # Shape: (H, W)
+    
+                    # Filter: Behalte nur Hintergrund (Klasse 0) und die gewünschte Klasse (z.B. Totholz, Klasse 4)
+                    # Alle Pixel, die weder 0 noch self.filter_class entsprechen, werden auf 0 gesetzt.
+                    label_map[(label_map != 0) & (label_map != self.filter_class)] = 0
+    
+                    # Rückkonvertierung in one-hot encoding:
+                    mask = torch.nn.functional.one_hot(label_map.long(), num_classes=configs_sc.HYPERPARAMETERS["num_classes"])
+                    mask = mask.permute(2, 0, 1).float()  # Shape: (num_classes, H, W)
+                    # print(mask)
+
             else:
-                mask = torch.zeros((configs_sc.HYPERPARAMETERS["num_classes"], patch.shape[1], patch.shape[2]), dtype=torch.float32)  # Create default background mask = all pixels in all channels (= classes) are zeros
+                # mask = torch.zeros((configs_sc.HYPERPARAMETERS["num_classes"], patch.shape[1], patch.shape[2]), dtype=torch.float32)  # Create default background mask = all pixels in all channels (= classes) are zeros
+                print("WARNING: MASKS IN FALSE FORMAT > BACKGROUND AS SEPARATE AND INDEPENDENT CLASS")
         else:
-            mask = torch.zeros((configs_sc.HYPERPARAMETERS["num_classes"], patch.shape[1], patch.shape[2]), dtype=torch.float32)  # Default background mask
+            print("WARNING")
+            # mask = torch.zeros((configs_sc.HYPERPARAMETERS["num_classes"], patch.shape[1], patch.shape[2]), dtype=torch.float32)  # Default background mask
 
         # Apply any transformations if needed
         if self.transform:
