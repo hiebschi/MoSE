@@ -55,6 +55,52 @@ def has_mask(patch_name, masks_dir):
     return os.path.exists(mask_path) # check if path exists
 
 
+# helper-function to load a  .npz file and extract the first array
+# function for undoing the .npz-compression! unzip!
+
+def unzip_npz_patch(patch_npz_name, patches_npz_dir, patches_unzipped_dir):
+    """
+    Loads a .npz patch file and extracts the first contained array, 
+    then saves it as an uncompressed .npy file in the output directory.
+
+    Args:
+        patch_npz_name (str): Name of the .npz patch file.
+        patches_npz_dir (str): Directory where the .npz files are stored.
+        patches_unzipped_dir (str): Target directory where the unzipped .npy files will be saved.
+
+    Returns:
+        tuple: (patch_name, output_path) if successful, otherwise None.
+    """
+    import os
+    import numpy as np
+
+    # Construct the path to the .npz file
+    patch_npz_path = os.path.join(patches_npz_dir, patch_npz_name)
+
+    try:
+        # Load the .npz file using memory mapping for more efficient loading
+        with np.load(patch_npz_path, mmap_mode='r') as data:
+            # Retrieve all keys (array names) from the .npz file
+            array_keys = list(data.keys())
+            if len(array_keys) > 1:
+                print(f".npz file '{patch_npz_name}' contains {len(array_keys)} arrays: {array_keys}")
+
+            # Remove the '.npz' extension to obtain the base patch name
+            patch_name = patch_npz_name.replace(".npz", "")
+            # Extract the first array from the .npz file
+            patch_image = data[array_keys[0]]
+
+        # Define the output path for the uncompressed .npy file
+        output_path = os.path.join(patches_unzipped_dir, patch_name)
+        # Save the patch image as an uncompressed .npy file
+        np.save(output_path, patch_image)
+        return patch_name, output_path
+
+    except Exception as e:
+        print(f"Error loading {patch_npz_name}: {e}")
+        return None
+
+
 # Dataset
 
 class PatchDataset(Dataset):
