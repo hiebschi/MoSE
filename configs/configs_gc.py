@@ -39,7 +39,7 @@ DATA_DIR = {
 HYPERPARAMETERS = {
     "train_sections": ["A01", "A02", "A03", "A04", "A05", "A08"],
     "test_sections": ["A06", "A07"],
-    "num_classes": 10,
+    "num_classes": 5,
     "batch_size": 8,
     "epochs": 30,
     "learning_rate": 0.00001,
