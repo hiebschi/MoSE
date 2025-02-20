@@ -23,10 +23,9 @@ BASE_DIR = '/lscratch/data'
 
 # Data Paths
 DATA_DIR = {
-    "preprocessed_patches_unz": os.path.join(BASE_DIR, 'preprocessed_patches_unz'),
-    # "masks": os.path.join(BASE_DIR, 'masks'),
-    "masks_ohe": os.path.join(BASE_DIR, 'masks_ohe'),
-    # "targets": os.path.join(BASE_DIR, 'targets'),
+    "patches": os.path.join(BASE_DIR, 'patches'),
+    "masks": os.path.join(BASE_DIR, 'masks'), # one-hot-encoded masks
+    # "targets": os.path.join(BASE_DIR, 'targets'), # 
     "codes": os.path.join(BASE_DIR, 'codes'),
     # labels": os.path.join(BASE_DIR, 'shapefiles'),
     "saved_models": os.path.join('/home/sc.uni-leipzig.de/rf37uqip/MoSE/saved_models/')

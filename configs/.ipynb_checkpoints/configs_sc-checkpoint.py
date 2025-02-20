@@ -23,10 +23,9 @@ BASE_DIR = '/lscratch/data'
 
 # Data Paths
 DATA_DIR = {
-    "preprocessed_patches_unz": os.path.join(BASE_DIR, 'preprocessed_patches_unz'),
-    # "masks": os.path.join(BASE_DIR, 'masks'),
-    "masks_ohe": os.path.join(BASE_DIR, 'masks_ohe'),
-    # "targets": os.path.join(BASE_DIR, 'targets'),
+    "patches": os.path.join(BASE_DIR, 'patches'),
+    "masks": os.path.join(BASE_DIR, 'masks'), # one-hot-encoded masks
+    # "targets": os.path.join(BASE_DIR, 'targets'), # 
     "codes": os.path.join(BASE_DIR, 'codes'),
     # labels": os.path.join(BASE_DIR, 'shapefiles'),
     "saved_models": os.path.join('/home/sc.uni-leipzig.de/rf37uqip/MoSE/saved_models/')
@@ -38,7 +37,7 @@ DATA_DIR = {
 HYPERPARAMETERS = {
     "train_sections": ["A01", "A02", "A03", "A04", "A05", "A08"],
     "test_sections": ["A06", "A07"],
-    "num_classes": 10,
+    "num_classes": 5,
     "batch_size": 8,
     "epochs": 30,
     "learning_rate": 1e-6,     # Hyperparameter Tuning: 1e-5 (first successfull model: loss going down, but overfitting) 
