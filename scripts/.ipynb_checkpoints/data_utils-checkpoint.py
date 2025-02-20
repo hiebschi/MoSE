@@ -146,7 +146,14 @@ class PatchDataset(Dataset):
         # Load .npy-patch dynamically
         patch_name = self.patches_list[idx]
         patch_path = os.path.join(self.patches_dir, patch_name)
-        patch = np.load(patch_path)
+
+        ############################
+        # DEBUGGING: ERROR HANDLING
+        try:
+            patch = np.load(patch_path, allow_pickle=True)  # use allow_pickle if needed
+        except EOFError:
+            print(f"EOFError: file {patch_path} is truncated or corrupt. Skipping this file.")
+            return None
 
         # Convert patch into Tensor and change dtype to float32
         patch = torch.tensor(patch, dtype=torch.float32)
