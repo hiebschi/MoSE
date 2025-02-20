@@ -35,8 +35,8 @@ DATA_DIR = {
 # Hyperparameters
 
 HYPERPARAMETERS = {
-    "train_sections": ["A01", "A02", "A03", "A04", "A05", "A08"],
-    "test_sections": ["A06", "A07"],
+    "train_sections": ["A01", "A02", "A03", "A05", "A06"],
+    "test_sections": ["A04", "A07", "A08"],
     "num_classes": 5,
     "batch_size": 8,
     "epochs": 30,
@@ -46,15 +46,10 @@ HYPERPARAMETERS = {
     "custom_colors": # customized colors for each class
        [
         (0.12, 0.47, 0.61),  # 0: blue
-        (0.84, 0.15, 0.16),  # 1: RED (not existent)
+        (0.65, 0.44, 0.29),  # 1: brown
         (0.40, 0.34, 0.29),  # 2: darkbrown
-        (0.84, 0.15, 0.16),  # 3: RED (not existent)
-        (0.65, 0.44, 0.29),  # 4: brown
-        (0.84, 0.15, 0.16),  # 5: RED (not existent)
-        (0.94, 0.74, 0.13),  # 6: orange
-        (0.84, 0.15, 0.16),  # 7: RED (not existent)
-        (0.74, 0.74, 0.13),  # 8: olive
-        (0.54, 0.74, 0.13),  # 9: green
+        (0.94, 0.74, 0.13),  # 3: orange
+        (0.74, 0.74, 0.13),  # 4: olive
         ]  
 }
 
