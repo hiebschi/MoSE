@@ -147,10 +147,10 @@ class PatchDataset(Dataset):
         patch_name = self.patches_list[idx]
         patch_path = os.path.join(self.patches_dir, patch_name)
 
-        ############################
-        # DEBUGGING: ERROR HANDLING
+
+        # Debugging: EOFError 
         try:
-            patch = np.load(patch_path, allow_pickle=True)  # use allow_pickle if needed
+            patch = np.load(patch_path, allow_pickle=True)
         except EOFError:
             print(f"EOFError: file {patch_path} is truncated or corrupt. Skipping this file.")
             return None
@@ -167,24 +167,22 @@ class PatchDataset(Dataset):
                 mask = torch.tensor(mask, dtype=torch.float32) # convert mask into Tensor and change datatype to float32
 
                 if self.filter_class is not None:
-                    # Umwandeln der one-hot Maske in eine Label-Map
+                    # convert one-hot mask into label-map
                     label_map = torch.argmax(mask, dim=0)  # Shape: (H, W)
     
-                    # Filter: Behalte nur Hintergrund (Klasse 0) und die gewünschte Klasse (z.B. Totholz, Klasse 4)
-                    # Alle Pixel, die weder 0 noch self.filter_class entsprechen, werden auf 0 gesetzt.
+                    # filter: keep only background class (class 0) and desired class (e.g. woody debris, class 1)
+                    # all pixels, which match neither 0 nor self.filter_class, set to 0.
                     label_map[(label_map != 0) & (label_map != self.filter_class)] = 0
     
-                    # Rückkonvertierung in one-hot encoding:
+                    # convert back in one-hot encoded masks:
                     mask = torch.nn.functional.one_hot(label_map.long(), num_classes=configs_sc.HYPERPARAMETERS["num_classes"])
                     mask = mask.permute(2, 0, 1).float()  # Shape: (num_classes, H, W)
                     # print(mask)
 
             else:
-                # mask = torch.zeros((configs_sc.HYPERPARAMETERS["num_classes"], patch.shape[1], patch.shape[2]), dtype=torch.float32)  # Create default background mask = all pixels in all channels (= classes) are zeros
-                print("WARNING: MASKS IN FALSE FORMAT > BACKGROUND AS SEPARATE AND INDEPENDENT CLASS")
+                print("WARNING: Mask does not exist!")
         else:
-            print("WARNING")
-            # mask = torch.zeros((configs_sc.HYPERPARAMETERS["num_classes"], patch.shape[1], patch.shape[2]), dtype=torch.float32)  # Default background mask
+            print("WARNING: Directory does not exist!")
 
         # Apply any transformations if needed
         if self.transform:
@@ -201,20 +199,20 @@ class PatchDataset(Dataset):
 
 
 ##################
-# Data exploration: How many pixels per class and how many are background pixels?
+# Data exploration: How many pixels per class?
 
-def average_pixel_distribution_dataloader(data_loader, num_classes, device, showprint=True):
+def pixel_distribution_dataloader(data_loader, num_classes, device, showprint=True):
     """
-    Calculates the average pixel distribution per class (including background) over an entire DataLoader.
+    Calculates the average pixel distribution per class over an entire DataLoader.
 
     Args:
         data_loader (torch.utils.data.DataLoader): DataLoader containing the dataset.
-        num_classes (int): Total number of classes (excluding background).
+        num_classes (int): Total number of classes.
         device (torch.device): Device to which the tensors should be moved.
         showprint (bool): Whether to print the results. Defaults to True.
 
     Returns:
-        dict: Dictionary containing the average percentage of pixels per class (including background).
+        dict: Dictionary containing the average percentage of pixels per class.
     """
     # Initialize counters
     class_pixel_counts = torch.zeros(num_classes, dtype=torch.float32, device=device)
@@ -232,17 +230,14 @@ def average_pixel_distribution_dataloader(data_loader, num_classes, device, show
         # Add to total pixel count (batch_size * height * width)
         total_pixels += masks.numel() // masks.shape[1]  # Total pixels in batch
 
-    # Calculate background pixels
-    background_pixels = total_pixels - class_pixel_counts.sum().item()
-
     # Calculate percentage for each class
-    results = {"Background": background_pixels / total_pixels * 100}
+    results = {}
     for cls in range(num_classes):
         results[f"Class {cls + 1}"] = class_pixel_counts[cls].item() / total_pixels * 100
 
     # Optional: Print results
     if showprint:
-        print("Average Pixel Distribution (%):")
+        print("Pixel Distribution (%):")
         for class_name, percentage in results.items():
             print(f"{class_name}: {percentage:.2f}%")
     
