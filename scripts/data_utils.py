@@ -233,7 +233,7 @@ def pixel_distribution_dataloader(data_loader, num_classes, device, showprint=Tr
     # Calculate percentage for each class
     results = {}
     for cls in range(num_classes):
-        results[f"Class {cls + 1}"] = class_pixel_counts[cls].item() / total_pixels * 100
+        results[f"Class {cls}"] = class_pixel_counts[cls].item() / total_pixels * 100
 
     # Optional: Print results
     if showprint:

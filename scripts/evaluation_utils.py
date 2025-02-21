@@ -111,112 +111,100 @@ def calculate_classwise_loss(logits, targets, num_classes, device):
 # No. 1: Confusion Matrix with overall and class-wise accuracy.
 # No. 2: F1 Score
 
-def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, device, F1_analysis = False):
+def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, device, F1_analysis=False):
     """
-    Evaluates a trained model on the entire/ a part of test dataset and computes the confusion matrix. 
-    Additionaly it calculates the overall and class-wise accuracy and if desired also the F1-Score.
+    Evaluates a trained model on the test dataset and computes the confusion matrix.
+    Additionally, it calculates the overall and class-wise accuracy and, if desired,
+    the F1-Score based on the confusion matrix computed incrementally.
     
     Args:
         model (torch.nn.Module): Trained model.
-        test_loader (DataLoader): DataLoader for the test data set.
+        test_loader (DataLoader): DataLoader for the test dataset.
         num_classes (int): Number of classes.
         device (str): Device to run the model on ("cpu" or "cuda").
-        F1_analysis (bool): If true, the F1 score is calculated with the test data set.
+        F1_analysis (bool): If True, the F1 score is calculated from the confusion matrix.
     
     Returns:
-        None (plots the confusion matrix)
+        None (plots the confusion matrix and prints evaluation metrics)
     """
     
     model.eval()  # Set model to evaluation mode
 
     test_acc = 0
-    all_test_preds = []
-    all_test_targets = []
+    # Initialize a total confusion matrix (incremental accumulation)
+    cm_total = np.zeros((num_classes, num_classes), dtype=int)
 
     with torch.no_grad():  # no gradient calculation needed
         for names, test_images, test_masks in test_loader:
-
             # Send data to device
             test_images, test_masks = test_images.to(device), test_masks.to(device)
 
-            # Targets: convert one-hot-encoded masks into class-index-format
-            test_targets = torch.argmax(test_masks, dim=1) # index of the highest class
+            # Convert one-hot-encoded masks into class-index format (ground truth)
+            test_targets = torch.argmax(test_masks, dim=1)  # shape: [batch_size, H, W]
 
-            # Get model predictions
-            # Do the forward pass
-            test_logits = model(test_images) 
-
-            # calculate the prediction probabilities for every pixel (to fit in a specific class or not)
+            # Forward pass
+            test_logits = model(test_images)  # model output
             test_pred_probs = torch.sigmoid(test_logits)
-
-            # go from prediction probabilities to prediction labels (binary: 0 or 1)
             test_preds = torch.round(test_pred_probs)
+            test_preds_idxformat = torch.argmax(test_preds, dim=1)  # predicted class indices
 
-            # convert one-hot-encoded predictions into class-index-format
-            test_preds_idxformat = torch.argmax(test_preds, dim=1) # model output
+            # Accuracy: compare true masks with predicted masks
+            test_acc += accuracy_fn(test_targets, test_preds_idxformat)
 
-            # Accuracy
-            # Compare true masks/targets with predicted masks/targets
-            test_acc += accuracy_fn(test_targets, test_preds_idxformat) # added up accuracy
+            # Compute batch confusion matrix (flatten arrays for pixel-wise comparison)
+            targets_np = test_targets.cpu().numpy().flatten()
+            preds_np = test_preds_idxformat.cpu().numpy().flatten()
+            cm_batch = confusion_matrix(targets_np, preds_np, labels=np.arange(num_classes))
+            cm_total += cm_batch
 
-            # store predictions and targets
-            all_test_preds.append(test_preds_idxformat.cpu().numpy().flatten())  
-            all_test_targets.append(test_targets.cpu().numpy().flatten())
+    # Average accuracy over batches
+    test_acc /= len(test_loader)
+    print(f"Test accuracy: {test_acc:.2f}%\n")
 
-    # convert lists to numpy arrays
-    all_test_preds = np.concatenate(all_test_preds)
-    all_test_targets = np.concatenate(all_test_targets)
-
-    print("Unique classes in true targets:", np.unique(all_test_targets))
-    print("Unique classes in predicted targets:", np.unique(all_test_preds), "\n")
-
-    test_acc /= len(test_loader) # len(test_loader)
-    print(f"Test accuracy: {test_acc:.2f}%")
-
-    # compute Confusion Matrix
-    cm = confusion_matrix(all_test_targets, all_test_preds, labels=np.arange(num_classes))
-
-    # calculate accuracy for each class
+    # Calculate class-wise accuracy based on the accumulated confusion matrix
     test_class_acc = []
     for i in range(num_classes):
-        correct = cm[i, i]  # correct classified samples of class i
-        total = cm[i, :].sum()  # total number of samples of class i
+        correct = cm_total[i, i]  # correct classified pixels of class i
+        total = cm_total[i, :].sum()  # total pixels of class i
         if total == 0:
-            test_class_acc.append(-999) # avoid division with zero
+            test_class_acc.append(-999)  # avoid division by zero
         else:
             test_class_acc.append(correct / total)
-
-    # Print test class-wise accuracy values
     print(f"Test class-wise accuracies: {test_class_acc}\n")
 
     # Plot Confusion Matrix
+    import seaborn as sns
+    import matplotlib.pyplot as plt
     plt.figure(figsize=(8, 6))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=np.arange(num_classes), yticklabels=np.arange(num_classes))
+    sns.heatmap(cm_total, annot=True, fmt="d", cmap="Blues", 
+                xticklabels=np.arange(num_classes), yticklabels=np.arange(num_classes))
     plt.xlabel("Predicted Class per Pixel")
     plt.ylabel("True Class per Pixel")
     plt.title("Confusion Matrix on Test Dataset")
     plt.show()
 
-    # F1-Score Analysis
-    from sklearn.metrics import f1_score
-
+    # F1-Score Analysis basierend auf der Konfusionsmatrix
     if F1_analysis:
-        
-        class_wise_f1 = f1_score(all_test_targets, all_test_preds, average=None)  # Class-wise F1-score (F1-Score for each class)
+        f1_scores = []
+        for i in range(num_classes):
+            # Berechne Precision und Recall für Klasse i
+            precision = cm_total[i, i] / (cm_total[:, i].sum() if cm_total[:, i].sum() > 0 else 1)
+            recall = cm_total[i, i] / (cm_total[i, :].sum() if cm_total[i, :].sum() > 0 else 1)
+            if precision + recall == 0:
+                f1 = 0
+            else:
+                f1 = 2 * precision * recall / (precision + recall)
+            f1_scores.append(f1)
+        macro_f1 = np.mean(f1_scores)
 
-        macro_f1 = f1_score(all_test_targets, all_test_preds, average="macro")  # Macro F1-score (calculate metrics for each label, and find their unweighted mean; does not take label imbalance into account)
-
-        # print(f"Class-wise F1-Scores: {class_wise_f1}")
-
-        # Create table with F1-Scores
+        # Ausgabe der F1-Scores
+        import pandas as pd
         f1_table = pd.DataFrame({
-            "Class": range(len(class_wise_f1)),  # class indices
-            "F1-Score": np.round(class_wise_f1, 4)  # rounded F1-Scores
+            "Class": list(range(num_classes)),
+            "F1-Score": np.round(f1_scores, 4)
         })
-
         print("Class-wise F1-Scores:")
         print(f1_table)
-        
         print(f"\nMacro F1-Score: {np.round(macro_f1, 4)}")
 
 
