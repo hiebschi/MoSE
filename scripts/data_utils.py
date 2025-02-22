@@ -273,19 +273,24 @@ class PatchDatasetCplx(Dataset):
         
         # Apply transformations
         transformed = self.transform(image=patch_np, mask=mask_np)
-        patch_np_trans = transformed['image']  
-        print(patch_np_trans.shape)
-        mask_np_trans = transformed['mask']    
-        print(mask_np_trans.shape)
+        patch_np_trans = transformed['image']  # shape: [3, 512, 512]
+        # print(patch_np_trans.shape)
+        mask_np_trans = transformed['mask'] # shape: [512, 512]
+        # print(mask_np_trans.shape)
             
         # Convert the transformed image back to torch.Tensor 
         patch = torch.as_tensor(patch_np_trans, dtype=torch.float32)
-            
+
+        if isinstance(mask_np_trans, torch.Tensor):
+                mask_tensor = mask_np_trans.clone().detach().to(dtype=torch.long)
+        else:
+                mask_tensor = torch.as_tensor(mask_np_trans, dtype=torch.long)
+
         # Convert the transformed 2D mask back to one-hot encoding with desired number of channels (2 or 5)
         new_mask = torch.nn.functional.one_hot(
-                torch.tensor(mask_np_trans, dtype=torch.long),
-                num_classes=configs_sc.HYPERPARAMETERS["num_classes"]
-            )
+            mask_tensor,
+            num_classes=configs_sc.HYPERPARAMETERS["num_classes"]
+        )
 
         # Permute from (H, W, 2 or 5) to (2 or 5, H, W)
         new_mask = new_mask.permute(2, 0, 1).float()
