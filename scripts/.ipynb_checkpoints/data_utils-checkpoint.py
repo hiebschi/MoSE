@@ -104,7 +104,7 @@ def unzip_npz_patch(patch_npz_name, patches_npz_dir, patches_unzipped_dir):
 # Dataset
 
 class PatchDataset(Dataset):
-    def __init__(self, patches_list, patches_dir, masks_dir=None, transform=None, filter_class=None): 
+    def __init__(self, patches_list, patches_dir, masks_dir=None, transform=None): 
         # initializes the dataset by saving list of .npy-patches, the directory of the .npy-patches and the masks 
         # and performs optional transformations or filters one specific class
 
@@ -115,14 +115,12 @@ class PatchDataset(Dataset):
             patches_dir (str): Directory containing patch .npy-files.
             masks_dir (str): Directory containing mask.npy-files (optional).
             transform (callable, optional): Transformation to be applied to the data.
-            filter_class (int): Class to filter masks by (optional)
         """
 
         self.patches_list = patches_list
         self.patches_dir = patches_dir
         self.masks_dir = masks_dir
         self.transform = transform
-        self.filter_class = filter_class
 
     def __len__(self):
 
@@ -166,27 +164,21 @@ class PatchDataset(Dataset):
                 mask = np.load(mask_path) # load mask
                 mask = torch.tensor(mask, dtype=torch.float32) # convert mask into Tensor and change datatype to float32
 
-                if self.filter_class is not None:
-                    # convert one-hot mask into label-map
-                    label_map = torch.argmax(mask, dim=0)  # Shape: (H, W)
-    
-                    # filter: keep only background class (class 0) and desired class (e.g. woody debris, class 1)
-                    # all pixels, which match neither 0 nor self.filter_class, set to 0.
-                    label_map[(label_map != 0) & (label_map != self.filter_class)] = 0
-    
-                    # convert back in one-hot encoded masks:
-                    mask = torch.nn.functional.one_hot(label_map.long(), num_classes=configs_sc.HYPERPARAMETERS["num_classes"])
-                    mask = mask.permute(2, 0, 1).float()  # Shape: (num_classes, H, W)
-                    # print(mask)
-
             else:
                 print("WARNING: Mask does not exist!")
         else:
             print("WARNING: Directory does not exist!")
 
-        # Apply any transformations if needed
-        if self.transform:
-            patch, mask = self.transform(patch, mask)
+        # if num_classes is set to 2 (background and woody debris), then convert masks this way: 
+        if mask.shape[0] == 5 and configs_sc.HYPERPARAMETERS["num_classes"] == 2:
+            # Convert from one-hot (5, H, W) to class index format (H, W)
+            old_class = torch.argmax(mask, dim=0)
+            # Class-index: if class==1 (woody debris) -> 1, else 0 (background)
+            new_class = (old_class == 1).long()
+            # Convert new class indices to one-hot encoding with 2 channels
+            new_mask = torch.nn.functional.one_hot(new_class, num_classes=2)
+            new_mask = new_mask.permute(2, 0, 1).float()  # shape: (2, H, W)
+            mask = new_mask # still one-hot-encoded
 
         # Ensure mask has the correct number of channels
         if mask.shape[0] != configs_sc.HYPERPARAMETERS["num_classes"]:  # If mask doesn't have the right number of channels
@@ -194,8 +186,113 @@ class PatchDataset(Dataset):
           mask = mask.unsqueeze(0)  # Add a channel dimension to the beginning to make it (1, H, W)
           mask = mask.repeat(configs_sc.HYPERPARAMETERS["num_classes"], 1, 1) # Repeat this along the channel dimension to get the desired shape (NUM_CLASSES, H, W)
 
+
+        # Apply any transformations if needed using Albumentations:
+        if self.transform:
+            # Albumentations expects keyword arguments 'image' and 'mask'
+            transformed = self.transform(image=patch.numpy(), mask=mask.numpy())
+            patch = torch.tensor(transformed['image'], dtype=torch.float32)
+            mask = torch.tensor(transformed['mask'], dtype=torch.float32)
+
         return patch_name, patch, mask
     
+
+
+######################  
+# SECOND VERSION
+
+class PatchDatasetTrain(Dataset):
+    def __init__(self, patches_list, patches_dir, masks_dir=None, transform=None): 
+        # initializes the dataset by saving list of .npy-patches, the directory of the .npy-patches and the masks 
+        # and performs optional transformations or filters one specific class
+
+        """
+        Custom Dataset for loading .npy patches and optional masks.
+        Args:
+            patches_list (list): List of the patch .npy-files.
+            patches_dir (str): Directory containing patch .npy-files.
+            masks_dir (str): Directory containing mask.npy-files (optional).
+            transform (callable, optional): Transformation to be applied to the data.
+        """
+
+        self.patches_list = patches_list
+        self.patches_dir = patches_dir
+        self.masks_dir = masks_dir
+        self.transform = transform
+
+    def __len__(self):
+
+        """
+        Returns the number of .npy-patches in the dataset.
+        """
+
+        return len(self.patches_list) # returns the number of .npy-patches for the DataLoader
+
+    def __getitem__(self, idx):
+        # Load .npy patch dynamically
+        patch_name = self.patches_list[idx]
+        patch_path = os.path.join(self.patches_dir, patch_name)
+    
+        try:
+            patch = np.load(patch_path, allow_pickle=True)
+        except EOFError:
+            print(f"EOFError: file {patch_path} is truncated or corrupt. Skipping this file.")
+            return None
+    
+        # Convert patch into Tensor and change dtype to float32 (shape: [C, H, W])
+        patch = torch.tensor(patch, dtype=torch.float32)
+    
+        # Load the mask if available
+        if self.masks_dir:   
+            mask_path = os.path.join(self.masks_dir, patch_name.replace(".npy", "_mask.npy"))
+            if os.path.exists(mask_path):   
+                mask = np.load(mask_path)  # mask is one-hot encoded, shape: [5, H, W]
+                mask = torch.tensor(mask, dtype=torch.float32)
+            else:
+                print("WARNING: Mask does not exist!")
+        else:
+            print("WARNING: Directory does not exist!")
+        
+        if self.transform:
+            # Convert the patch from CHW to HWC for Albumentations (using .permute(1, 2, 0))
+            patch_np = patch.permute(1, 2, 0).cpu().numpy()  # Now shape: [H, W, C]
+            
+            # Convert the one-hot encoded mask (shape [5, H, W]) to class indices (shape: [H, W])
+            old_class = torch.argmax(mask, dim=0).cpu().numpy()
+            
+            if configs_sc.HYPERPARAMETERS["num_classes"] == 2:
+                # Map non-target classes to background (0) and target class (e.g., class 1) remains as 1
+                mask_np = (old_class == 1).astype(np.uint8)
+            else:
+                # Use original class indices for 5 classes
+                mask_np = old_class.astype(np.uint8)
+            
+            # Apply Albumentations transformations; note that 'image' should be HWC and 'mask' should be 2D.
+            transformed = self.transform(image=patch_np, mask=mask_np)
+            patch_np_trans = transformed['image']  # Expected shape: [H, W, C]
+            mask_np_trans = transformed['mask']      # Expected shape: [H, W]
+            
+            # Convert the transformed image back to torch.Tensor in CHW order (permute from HWC to CHW)
+            patch = torch.as_tensor(patch_np_trans, dtype=torch.float32).permute(2, 0, 1)  # Should yield [C, H, W]
+            
+            # Convert the transformed 2D mask back to one-hot encoding with desired number of channels (2 or 5)
+            new_mask = torch.nn.functional.one_hot(
+                torch.tensor(mask_np_trans, dtype=torch.long),
+                num_classes=configs_sc.HYPERPARAMETERS["num_classes"]
+            )
+            # Permute from (H, W, num_classes) to (num_classes, H, W)
+            new_mask = new_mask.permute(2, 0, 1).float()
+            mask = new_mask
+
+        # Fallback: Falls keine Transformation angewandt wurde, stelle sicher, dass die Maske die korrekte Anzahl an Kanälen hat
+        if mask.shape[0] != configs_sc.HYPERPARAMETERS["num_classes"]:
+            print("WARNING: NOT THE RIGHT NUMBER OF CHANNELS!")
+            mask = mask.unsqueeze(0)
+            mask = mask.repeat(configs_sc.HYPERPARAMETERS["num_classes"], 1, 1)
+    
+        return patch_name, patch, mask
+
+
 
 
 ##################
