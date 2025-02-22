@@ -241,6 +241,7 @@ class PatchDatasetTrain(Dataset):
     
         # Convert patch into Tensor and change dtype to float32 (shape: [C, H, W])
         patch = torch.tensor(patch, dtype=torch.float32)
+        print("Patch before:", patch.shape)
     
         # Load the mask if available
         if self.masks_dir:   
@@ -248,6 +249,7 @@ class PatchDatasetTrain(Dataset):
             if os.path.exists(mask_path):   
                 mask = np.load(mask_path)  # mask is one-hot encoded, shape: [5, H, W]
                 mask = torch.tensor(mask, dtype=torch.float32)
+                print("Mask before:", mask.shape)
             else:
                 print("WARNING: Mask does not exist!")
         else:
@@ -256,9 +258,11 @@ class PatchDatasetTrain(Dataset):
         if self.transform:
             # Convert the patch from CHW to HWC for Albumentations (using .permute(1, 2, 0))
             patch_np = patch.permute(1, 2, 0).cpu().numpy()  # Now shape: [H, W, C]
+            print("Patch permute no. 1:", patch_np.shape)
             
             # Convert the one-hot encoded mask (shape [5, H, W]) to class indices (shape: [H, W])
             old_class = torch.argmax(mask, dim=0).cpu().numpy()
+            print("class index format:", old_class.shape)
             
             if configs_sc.HYPERPARAMETERS["num_classes"] == 2:
                 # Map non-target classes to background (0) and target class (e.g., class 1) remains as 1
@@ -266,29 +270,36 @@ class PatchDatasetTrain(Dataset):
             else:
                 # Use original class indices for 5 classes
                 mask_np = old_class.astype(np.uint8)
-            
+
+            print("mask reduced to 2 classes:", mask_np.shape)
+        
             # Apply Albumentations transformations; note that 'image' should be HWC and 'mask' should be 2D.
             transformed = self.transform(image=patch_np, mask=mask_np)
-            patch_np_trans = transformed['image']  # Expected shape: [H, W, C]
+            patch_np_trans = transformed['image']  # Expected shape: [C, H, W]
             mask_np_trans = transformed['mask']      # Expected shape: [H, W]
+
+            print("patch transformed", patch_np_trans.shape)
+            print("mask transformed", mask_np_trans.shape)
             
-            # Convert the transformed image back to torch.Tensor in CHW order (permute from HWC to CHW)
-            patch = torch.as_tensor(patch_np_trans, dtype=torch.float32).permute(2, 0, 1)  # Should yield [C, H, W]
+            # Convert the transformed image back to torch.Tensor 
+            patch = torch.as_tensor(patch_np_trans, dtype=torch.float32)
+
+            print("Patch permute no. 2:", patch.shape)
             
             # Convert the transformed 2D mask back to one-hot encoding with desired number of channels (2 or 5)
             new_mask = torch.nn.functional.one_hot(
                 torch.tensor(mask_np_trans, dtype=torch.long),
                 num_classes=configs_sc.HYPERPARAMETERS["num_classes"]
             )
+
+            print("Mask now again one-hot-encoded", new_mask.shape)
+            
             # Permute from (H, W, num_classes) to (num_classes, H, W)
             new_mask = new_mask.permute(2, 0, 1).float()
             mask = new_mask
 
-        # Fallback: Falls keine Transformation angewandt wurde, stelle sicher, dass die Maske die korrekte Anzahl an Kanälen hat
-        if mask.shape[0] != configs_sc.HYPERPARAMETERS["num_classes"]:
-            print("WARNING: NOT THE RIGHT NUMBER OF CHANNELS!")
-            mask = mask.unsqueeze(0)
-            mask = mask.repeat(configs_sc.HYPERPARAMETERS["num_classes"], 1, 1)
+            print("Mask permute no. 1:", mask.shape)
+            print("Patch shape at THE END!!!!!!!!!!!!!!!!!!!!!!", patch.shape)
     
         return patch_name, patch, mask
 
