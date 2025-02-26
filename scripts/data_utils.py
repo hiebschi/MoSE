@@ -111,7 +111,7 @@ class PatchDatasetSimple(Dataset):
         # initializes the dataset by saving list of .npy-patches, the directory of the .npy-patches and the masks 
 
         """
-        Custom Dataset for loading .npy patches and optional masks.
+        Custom dataset that defines how patches and their masks are loaded into the model.
         Args:
             patches_list (list): List of the patch .npy-files.
             patches_dir (str): Directory containing patch .npy-files.
@@ -196,7 +196,7 @@ class PatchDatasetCplx(Dataset):
         # and performs transformations / data augmentation
 
         """
-        Custom Dataset for loading .npy patches and optional masks.
+        Custom dataset that defines how patches and their masks are loaded into the model.
         Args:
             patches_list (list): List of the patch .npy-files.
             patches_dir (str): Directory containing patch .npy-files.
