@@ -183,11 +183,11 @@ def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, d
     plt.title("Confusion Matrix on Test Dataset")
     plt.show()
 
-    # F1-Score Analysis basierend auf der Konfusionsmatrix
+    # F1-Score Analysis based on confusion matrix
     if F1_analysis:
         f1_scores = []
         for i in range(num_classes):
-            # Berechne Precision und Recall für Klasse i
+            # calculate precision and recall for class i
             precision = cm_total[i, i] / (cm_total[:, i].sum() if cm_total[:, i].sum() > 0 else 1)
             recall = cm_total[i, i] / (cm_total[i, :].sum() if cm_total[i, :].sum() > 0 else 1)
             if precision + recall == 0:
@@ -197,7 +197,7 @@ def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, d
             f1_scores.append(f1)
         macro_f1 = np.mean(f1_scores)
 
-        # Ausgabe der F1-Scores
+        # show F1-scores
         import pandas as pd
         f1_table = pd.DataFrame({
             "Class": list(range(num_classes)),

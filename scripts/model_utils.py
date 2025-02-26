@@ -20,8 +20,7 @@ model_0 = smp.Unet(   # -------------------->> ADJUSTABLE
 )
 
 
-DiceLoss_fn = smp.losses.DiceLoss(mode="multilabel")
-
+# DiceLoss_fn = smp.losses.DiceLoss(mode="multilabel")
 # CrossEntropyLoss_fn = nn.CrossEntropyLoss()
 
 
