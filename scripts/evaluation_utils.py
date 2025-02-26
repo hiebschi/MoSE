@@ -185,31 +185,53 @@ def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, d
 
     # F1-Score Analysis based on confusion matrix
     if F1_analysis:
+        
+        # lists for precision, recall, and F1-score for each class
         f1_scores = []
+        precisions = []
+        recalls = []
+        
         for i in range(num_classes):
-            # calculate precision and recall for class i
-            precision = cm_total[i, i] / (cm_total[:, i].sum() if cm_total[:, i].sum() > 0 else 1)
-            recall = cm_total[i, i] / (cm_total[i, :].sum() if cm_total[i, :].sum() > 0 else 1)
-            if precision + recall == 0:
-                f1 = 0
-            else:
-                f1 = 2 * precision * recall / (precision + recall)
+            
+            # True positives for class i
+            true_pos = cm_total[i, i]
+            
+            # Total predicted positives for class i (sum of column i)
+            predicted_pos_total = cm_total[:, i].sum()
+            # Total actual positives for class i (sum of row i)
+            true_pos_total = cm_total[i, :].sum()
+            
+            # Calculate precision (avoid division by zero)
+            precision = true_pos / predicted_pos_total if predicted_pos_total > 0 else 0
+
+            # Calculate recall
+            recall = true_pos / true_pos_total if true_pos_total > 0 else 0
+
+            # save values per class
+            precisions.append(precision)
+            recalls.append(recall)
+            
+            # Calculate F1-score: if precision + recall is 0, define F1 as 0
+            f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
             f1_scores.append(f1)
+
+        # Compute macro averages for precision, recall, and F1-score
+        macro_precision = np.mean(precisions)
+        macro_recall = np.mean(recalls)
         macro_f1 = np.mean(f1_scores)
 
-        # show F1-scores
-        import pandas as pd
-        f1_table = pd.DataFrame({
+        # Create a table with class-wise metrics
+        results_table = pd.DataFrame({
             "Class": list(range(num_classes)),
+            "Precision": np.round(precisions, 4),
+            "Recall": np.round(recalls, 4),
             "F1-Score": np.round(f1_scores, 4)
         })
-        print("Class-wise F1-Scores:")
-        print(f1_table)
-        print(f"\nMacro F1-Score: {np.round(macro_f1, 4)}")
-
-
-
-
+        print("Class-wise evaluation metrics:")
+        print(results_table)
+        print(f"\nMacro Precision: {np.round(macro_precision, 4)}")
+        print(f"Macro Recall: {np.round(macro_recall, 4)}")
+        print(f"Macro F1-Score: {np.round(macro_f1, 4)}")
 
 
 
