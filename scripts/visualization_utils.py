@@ -79,6 +79,21 @@ def plot_mask_idxformat(mask_idxformat, mask_name, reversed_codes, custom_colors
 
 
 
+
+def denormalize(image, mean, std):
+    """
+    Reverse the normalization of an image.
+    Assumes `image` is a NumPy array with shape [H, W, C] and pixel values after A.Normalize.
+    """
+    mean = np.array(mean)
+    std = np.array(std)
+    # Reverse normalization: multiply by std and add mean.
+    image = image * std + mean
+    return image
+
+
+
+
 ###############################################################
 # visualize RGB patch, true mask and predicted mask
 
@@ -107,7 +122,13 @@ def visualize_prediction(patch_name, test_loader, model, device, reversed_codes,
 
             # convert and normalize rgb image
             t_image = images[patch_idx].permute(1, 2, 0).cpu().numpy()
-            t_image = (t_image - t_image.min()) / (t_image.max() - t_image.min())  
+            
+            # Denormalize the image using the same mean and std used in the transformation
+            mean = [0.485, 0.456, 0.406]
+            std = [0.229, 0.224, 0.225]
+            t_image = denormalize(t_image, mean, std)
+
+            t_image = (t_image - t_image.min()) / (t_image.max() - t_image.min()) 
 
             # convert mask into class-index format
             t_true_mask = masks[patch_idx].cpu().numpy().argmax(axis=0)
