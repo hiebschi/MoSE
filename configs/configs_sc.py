@@ -37,7 +37,7 @@ DATA_DIR = {
 HYPERPARAMETERS = {
     "train_sections": ["A01", "A02", "A03", "A05", "A06"],
     "test_sections": ["A04", "A07", "A08"],
-    "num_classes": 2,
+    "num_classes": 5,
     "batch_size": 8,
     "epochs": 50,
     "learning_rate": 1e-6,     # Hyperparameter Tuning: 1e-5 (first successfull model: loss going down, but overfitting) 
