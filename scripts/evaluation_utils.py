@@ -161,16 +161,10 @@ def evaluate_model_with_testdata(model, test_loader, accuracy_fn, num_classes, d
     test_acc /= len(test_loader)
     print(f"Test accuracy: {test_acc:.2f}%\n")
 
-    # Calculate class-wise accuracy based on the accumulated confusion matrix
-    test_class_acc = []
+    # Calculate the accumulated confusion matrix
     for i in range(num_classes):
         correct = cm_total[i, i]  # correct classified pixels of class i
         total = cm_total[i, :].sum()  # total pixels of class i
-        if total == 0:
-            test_class_acc.append(-999)  # avoid division by zero
-        else:
-            test_class_acc.append(correct / total)
-    print(f"Test class-wise accuracies: {test_class_acc}\n")
 
     # Plot Confusion Matrix
     import seaborn as sns

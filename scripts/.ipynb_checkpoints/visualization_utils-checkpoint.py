@@ -10,16 +10,18 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import math
 import torch
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+import matplotlib.font_manager as fm
 
 ##########################################################
 # Plot one RGB patch
 
 def norm_plot_patch(patch, patch_name):
     """
-    Normalizes and plots a single preprocessed patch.
+    Normalizes and plots a single patch.
     
     Args:
-        patch (numpy.ndarray): preprocessed patch/ image data.
+        patch (numpy.ndarray): patch/ image data.
         patch_name (str): name of this patch.
     
     Returns: 
@@ -29,11 +31,38 @@ def norm_plot_patch(patch, patch_name):
     # Normalization
     patch_normalized = patch - np.min(patch) # set minimum to 0
     patch_normalized = patch_normalized / np.max(patch_normalized)  # maximize to 1
+    print(patch_name)
 
     # Plot the preprocessed image
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.imshow(patch_normalized.transpose(1, 2, 0))  # transpose for RGB depiction
-    ax.set_title(f"Preprocessed Patch: {patch_name}")
+    ax.set_title(f"Original Image Patch")
+
+    # ADD SCALE BAR
+    # pixel_size_m is the physical size of one pixel in meters = 0.024 m
+    pixel_size_m = 0.024  # 2.4 cm per pixel
+
+    # desired physical length for the scale bar in meters 
+    desired_length_m = 1.0
+
+    # Convert the desired physical length to pixel length
+    scale_bar_length_px = desired_length_m / pixel_size_m 
+
+    # Create a FontProperties object for the scale bar label
+    fontprops = fm.FontProperties(size=10)
+
+    # Create the AnchoredSizeBar with the computed pixel length
+    scalebar = AnchoredSizeBar(ax.transData,
+                           scale_bar_length_px,      # Length of scale bar in pixels
+                           f"{desired_length_m} m",   # Label for the scale bar
+                           "lower right",             # Location in the plot
+                           pad=0.1,                   # Padding between scale bar and plot edge
+                           color="white",             # Color of the scale bar and text
+                           frameon=False,             
+                           size_vertical=2)           # Thickness of the scale bar
+
+    # Add the scale bar to the axis
+    ax.add_artist(scalebar)
     plt.show()
 
 
@@ -54,6 +83,7 @@ def plot_mask_idxformat(mask_idxformat, mask_name, reversed_codes, custom_colors
     Returns: 
         Plot of one mask.
     """
+    print(mask_name)
 
     # ensure that the number of colors matches the classes
     assert len(custom_colors) >= len(reversed_codes), "not enough colors!"
@@ -64,7 +94,8 @@ def plot_mask_idxformat(mask_idxformat, mask_name, reversed_codes, custom_colors
     # plot mask with colormap
     plt.figure(figsize=(8, 8))
     plt.imshow(mask_idxformat, cmap=cmap, vmin=0, vmax=len(reversed_codes) - 1, interpolation='nearest') # deactivate interpolation
-    plt.title(f"Patch: {mask_name}")
+    plt.title(f"Ground Truth Mask")
+
     plt.axis("off")
 
     # legend with colors and class names
@@ -149,27 +180,80 @@ def visualize_prediction(patch_name, test_loader, model, device, reversed_codes,
     # normalize RGB image
     t_image = (t_image - t_image.min()) / (t_image.max() - t_image.min())
     
-    cmap = mcolors.ListedColormap(custom_colors[:len(reversed_codes)])
+    cmap = mcolors.ListedColormap(custom_colors[:2])
     
     # plot images and masks
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
     
     axes[0].imshow(t_image)
     axes[0].set_title("Original Image")
+
+    # ADD SCALE BAR
+    # pixel_size_m is the physical size of one pixel in meters = 0.024 m
+    pixel_size_m = 0.024  # 2.4 cm per pixel
+
+    # desired physical length for the scale bar in meters 
+    desired_length_m = 1.0
+
+    # Convert the desired physical length to pixel length
+    scale_bar_length_px = desired_length_m / pixel_size_m 
+
+    # Create a FontProperties object for the scale bar label
+    fontprops = fm.FontProperties(size=10)
+
+    # Create the AnchoredSizeBar with the computed pixel length
+    scalebar = AnchoredSizeBar(axes[0].transData,
+                           scale_bar_length_px,      # Length of scale bar in pixels
+                           f"{desired_length_m} m",   # Label for the scale bar
+                           "lower right",             # Location in the plot
+                           pad=0.1,                   # Padding between scale bar and plot edge
+                           color="white",             # Color of the scale bar and text
+                           frameon=False,             
+                           size_vertical=2)           # Thickness of the scale bar
+
+    # Add the scale bar to the axis
+    axes[0].add_artist(scalebar)
     axes[0].axis("off")
     
-    axes[1].imshow(t_true_mask, cmap=cmap, vmin=0, vmax=len(reversed_codes) - 1, interpolation='nearest')
-    axes[1].set_title("True Mask")
+    axes[1].imshow(t_true_mask, cmap=cmap, vmin=0, vmax=2 - 1, interpolation='nearest')
+    axes[1].set_title("Ground Truth Mask")
+
+    # Create the AnchoredSizeBar with the computed pixel length
+    scalebar = AnchoredSizeBar(axes[1].transData,
+                           scale_bar_length_px,      # Length of scale bar in pixels
+                           f"{desired_length_m} m",   # Label for the scale bar
+                           "lower right",             # Location in the plot
+                           pad=0.1,                   # Padding between scale bar and plot edge
+                           color="white",             # Color of the scale bar and text
+                           frameon=False,             
+                           size_vertical=2)           # Thickness of the scale bar
+
+    # Add the scale bar to the axis
+    axes[1].add_artist(scalebar)
     axes[1].axis("off")
     
-    axes[2].imshow(t_pred_mask, cmap=cmap, vmin=0, vmax=len(reversed_codes) - 1, interpolation='nearest')
+    
+    axes[2].imshow(t_pred_mask, cmap=cmap, vmin=0, vmax=2 - 1, interpolation='nearest')
     axes[2].set_title("Predicted Mask")
+
+    # Create the AnchoredSizeBar with the computed pixel length
+    scalebar = AnchoredSizeBar(axes[2].transData,
+                           scale_bar_length_px,      # Length of scale bar in pixels
+                           f"{desired_length_m} m",   # Label for the scale bar
+                           "lower right",             # Location in the plot
+                           pad=0.1,                   # Padding between scale bar and plot edge
+                           color="white",             # Color of the scale bar and text
+                           frameon=False,             
+                           size_vertical=2)           # Thickness of the scale bar
+
+    # Add the scale bar to the axis
+    axes[2].add_artist(scalebar)
     axes[2].axis("off")
     
     # add legend
     legend_elements = [
         plt.Line2D([0], [0], marker="o", color=custom_colors[i], markersize=10, linestyle="None", label=reversed_codes[i])
-        for i in range(len(reversed_codes))
+        for i in range(2)
     ]
     axes[2].legend(handles=legend_elements, title="Classes", bbox_to_anchor=(1.05, 1), loc='upper left')
     
