@@ -111,6 +111,85 @@ def plot_mask_idxformat(mask_idxformat, mask_name, reversed_codes, custom_colors
 
 
 
+#############################################
+# Plots loss curves per class
+
+def plot_loss_curves_per_class(class_wise_loss, dataset_type, num_classes, reversed_codes, custom_colors):
+    """
+    Plots the loss curves per epoch for each class.
+    
+    Args:
+        class_wise_loss (list): List of arrays (or tuples), each containing per-class loss values for one epoch.
+        dataset_type (str): "Train" or "Test", indicating which dataset is plotted.
+        num_classes (int): Number of classes.
+        reversed_codes (dict): Dictionary mapping class indices to class names.
+        custom_colors (list): A list of RGB tuples for each class.
+    """
+
+    # Create a list of epoch numbers (1, 2, ..., number of epochs)
+    epochs = list(range(1, len(class_wise_loss) + 1))
+
+    # Create the plot
+    plt.figure(figsize=(10, 5))
+    
+    for i in range(num_classes):
+        
+        # Extract the loss for class i over all epochs
+        class_losses = [epoch_losses[i] for epoch_losses in class_wise_loss]
+        
+        # Use reversed_codes to get the class name (fallback: "class i")
+        class_name = reversed_codes.get(i, f"Class {i}")
+        plt.plot(epochs, class_losses, marker = 'o', linestyle='-', 
+                 color=custom_colors[i],
+                 label=f"Loss Class {i}: {class_name}")
+
+    plt.xlabel("Epoch []") # Set the x-axis label
+    plt.ylabel("Cross Entropy Loss []") # Set the y-axis label
+    plt.title(f"{dataset_type} Loss per Class over Epochs") # Set the plot title
+    plt.xlim(left=1) # Force x-axis to start at epoch 0
+    plt.ylim(bottom=0) # Force y-axis to start at 0
+    plt.legend() # Display the legend
+    plt.grid(True) # Enable grid for better readability
+    plt.show() # Display the plot
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#########################################################
+# Denormalizes an image
 def denormalize(image, mean, std):
     """
     Reverse the normalization of an image.

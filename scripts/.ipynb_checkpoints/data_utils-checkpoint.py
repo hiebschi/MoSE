@@ -7,21 +7,18 @@ Helper functions used for loading and handling data.
 # import required packages
 
 import os
-
 import numpy as np
-
 from concurrent.futures import ThreadPoolExecutor
-
 import torch
 import torchvision
 from torch import nn
 from torch.utils.data import Dataset
 
-
 # import configs.py-file
 import importlib
 from configs import configs_sc
 importlib.reload(configs_sc) # reload changes
+
 
 # Small helper functions
 ########################
@@ -100,6 +97,7 @@ def unzip_npz_patch(patch_npz_name, patches_npz_dir, patches_unzipped_dir):
         return None
 
 
+
 # Datasets
 ###############################################
 # No. 1: Simple Dataset
@@ -111,7 +109,7 @@ class PatchDatasetSimple(Dataset):
         # initializes the dataset by saving list of .npy-patches, the directory of the .npy-patches and the masks 
 
         """
-        Custom Dataset for loading .npy patches and optional masks.
+        Custom dataset that defines how patches and their masks are loaded into the model.
         Args:
             patches_list (list): List of the patch .npy-files.
             patches_dir (str): Directory containing patch .npy-files.
@@ -196,7 +194,7 @@ class PatchDatasetCplx(Dataset):
         # and performs transformations / data augmentation
 
         """
-        Custom Dataset for loading .npy patches and optional masks.
+        Custom dataset that defines how patches and their masks are loaded into the model.
         Args:
             patches_list (list): List of the patch .npy-files.
             patches_dir (str): Directory containing patch .npy-files.
@@ -301,6 +299,11 @@ class PatchDatasetCplx(Dataset):
           print("WARNING: NOT THE RIGHT NUMBER OF CHANNELS!")
     
         return patch_name, patch, mask
+
+
+
+
+
 
 
 

@@ -25,23 +25,22 @@ BASE_DIR = '/lscratch/data'
 DATA_DIR = {
     "patches": os.path.join(BASE_DIR, 'patches'),
     "masks": os.path.join(BASE_DIR, 'masks'), # one-hot-encoded masks
-    # "targets": os.path.join(BASE_DIR, 'targets'), # 
     "codes": os.path.join(BASE_DIR, 'codes'),
-    # labels": os.path.join(BASE_DIR, 'shapefiles'),
-    "saved_models": os.path.join('/home/sc.uni-leipzig.de/rf37uqip/MoSE/saved_models/')
+    # "models": os.path.join('/home/sc.uni-leipzig.de/rf37uqip/MoSE/models/') # save trained models in repository!
+    "models": os.path.join('/work/rf37uqip-MoSE_thesis/data/models/') # save trained models in workspace!
 }
 
 ######################################################
 # Hyperparameters
 
 HYPERPARAMETERS = {
+    "num_classes": 5,
+    "epochs": 2,
+    "data_augmentation": False, 
+    "learning_rate": 1e-6,     # Hyperparameter Tuning showed that lr of 1e-6 leads to the best performance
     "train_sections": ["A01", "A02", "A03", "A05", "A06"],
     "test_sections": ["A04", "A07", "A08"],
-    "num_classes": 5,
     "batch_size": 8,
-    "epochs": 50,
-    "learning_rate": 1e-6,     # Hyperparameter Tuning: 1e-5 (first successfull model: loss going down, but overfitting) 
-                                # >> therefore: 1e-6 and 1e-7 # 1e-6 is the best
     "seed": 42,
     "custom_colors": # customized colors for each class
        [
