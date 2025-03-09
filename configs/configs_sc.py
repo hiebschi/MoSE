@@ -34,9 +34,9 @@ DATA_DIR = {
 # Hyperparameters
 
 HYPERPARAMETERS = {
-    "num_classes": 5,
+    "num_classes": 2,
     "epochs": 2,
-    "data_augmentation": False, 
+    "data_augmentation": True, 
     "learning_rate": 1e-6,     # Hyperparameter Tuning showed that lr of 1e-6 leads to the best performance
     "train_sections": ["A01", "A02", "A03", "A05", "A06"],
     "test_sections": ["A04", "A07", "A08"],
@@ -51,6 +51,7 @@ HYPERPARAMETERS = {
         (0.74, 0.74, 0.13),  # 4: olive
         ]  
 }
+
 
 # Set Random Seeds for Reproducibility
 SEED = HYPERPARAMETERS["seed"]

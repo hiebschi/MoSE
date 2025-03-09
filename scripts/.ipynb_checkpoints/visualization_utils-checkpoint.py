@@ -12,6 +12,9 @@ import math
 import torch
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 import matplotlib.font_manager as fm
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 ##########################################################
 # Plot one RGB patch
@@ -110,6 +113,33 @@ def plot_mask_idxformat(mask_idxformat, mask_name, reversed_codes, custom_colors
 
 
 
+###################################################
+# Plot class-wise loss for a specific epoch
+
+def plot_classwise_loss(epoch_num, class_wise_losses_per_epoch, num_classes):
+    """
+    Plots a bar chart of the class-wise loss for a specific epoch.
+    
+    Args:
+        epoch_num (int): Epoch number to visualize.
+        class_wise_losses_per_epoch (list of numpy arrays): Class-wise losses per epoch.
+        num_classes (int): Number of classes.
+    """
+    if epoch_num >= len(class_wise_losses_per_epoch):
+        print(f"Epoch {epoch_num} is out of range! Max epoch: {len(class_wise_losses_per_epoch) - 1}")
+        return
+
+    class_losses = class_wise_losses_per_epoch[epoch_num]  # loss values of chosen epoch 
+    
+    plt.figure(figsize=(8, 5))
+    plt.bar(np.arange(num_classes), class_losses, color="skyblue")
+    plt.xlabel("Class Index")
+    plt.ylabel("Loss")
+    plt.title(f"Class-wise Loss for Epoch {epoch_num}")
+    plt.xticks(np.arange(num_classes))
+    plt.show()
+
+
 
 #############################################
 # Plots loss curves per class
@@ -152,33 +182,6 @@ def plot_loss_curves_per_class(class_wise_loss, dataset_type, num_classes, rever
     plt.grid(True) # Enable grid for better readability
     plt.show() # Display the plot
    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -361,6 +364,12 @@ def visualize_prediction(patch_name, test_loader, model, device, reversed_codes,
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
     import matplotlib.font_manager as fm
     import numpy as np
+
+    # Import the configuration to determine the number of classes
+    from configs import configs_sc
+
+    # Determine number of classes from hyperparameters (e.g. 2 or 5)
+    n_classes = configs_sc.HYPERPARAMETERS["num_classes"]
     
     # -------------------------------------------------------------------
     # 1. Search for the Patch in the Test DataLoader
@@ -443,12 +452,11 @@ def visualize_prediction(patch_name, test_loader, model, device, reversed_codes,
     # -------------------------------------------------------------------
     # 4. Create Legend for the Classes
     # -------------------------------------------------------------------
-    # Sort the class keys in ascending order for clarity
-    sorted_keys = sorted(reversed_codes.keys())  # Expected to be [0, 1, 2, 3, 4]
+    # Only use class indices 0 to n_classes-1
     legend_elements = [
-        plt.Line2D([0], [0], marker="o", color=custom_colors[k], markersize=10,
-                   linestyle="None", label=reversed_codes[k])
-        for k in sorted_keys
+        plt.Line2D([0], [0], marker="o", color=custom_colors[i], markersize=10,
+                   linestyle="None", label=reversed_codes.get(i, f"Class {i}"))
+        for i in range(n_classes)
     ]
     axes[2].legend(handles=legend_elements, title="Classes", bbox_to_anchor=(1.05, 1), loc="upper left")
     
@@ -466,38 +474,56 @@ def visualize_prediction(patch_name, test_loader, model, device, reversed_codes,
 
 
 
-###################################################
-# plot class-wise loss for a specific epoch
+######################################################################################
+# Visualize all test patches and save as pdf!
 
-def plot_classwise_loss(epoch_num, class_wise_losses_per_epoch, num_classes):
+def visualize_all_test_patches(test_loader, model, device, reversed_codes, custom_colors, output_pdf):
     """
-    Plots a bar chart of the class-wise loss for a specific epoch.
+    Iterates over all patches in the test DataLoader, calls the visualize_prediction function 
+    for each patch, and saves each visualization as a separate page in a multi-page PDF.
     
     Args:
-        epoch_num (int): Epoch number to visualize.
-        class_wise_losses_per_epoch (list of numpy arrays): Class-wise losses per epoch.
-        num_classes (int): Number of classes.
+        test_loader (DataLoader): PyTorch DataLoader containing test images and masks.
+        model (torch.nn.Module): Trained model for generating predictions.
+        device (torch.device): Device to perform computations on.
+        reversed_codes (list): List of class names corresponding to class indices.
+        custom_colors (list): List of custom color definitions for each class.
+        output_pdf (str): Filename for the output PDF.
     """
-    if epoch_num >= len(class_wise_losses_per_epoch):
-        print(f"Epoch {epoch_num} is out of range! Max epoch: {len(class_wise_losses_per_epoch) - 1}")
-        return
+    # Create a PdfPages object to store multiple pages
+    pdf = PdfPages(output_pdf)
 
-    class_losses = class_wise_losses_per_epoch[epoch_num]  # loss values of chosen epoch 
+    # Determine the total number of patches from the dataset
+    total_patches = len(test_loader.dataset)
     
-    plt.figure(figsize=(8, 5))
-    plt.bar(np.arange(num_classes), class_losses, color="skyblue")
-    plt.xlabel("Class Index")
-    plt.ylabel("Loss")
-    plt.title(f"Class-wise Loss for Epoch {epoch_num}")
-    plt.xticks(np.arange(num_classes))
-    plt.show()
-
-
-
-
-
-
-
+    # Create a tqdm progress bar for all patches
+    pbar = tqdm(total=total_patches, desc="Plotting patches")
+    
+    # Iterate over each batch in the test DataLoader
+    for batch in test_loader:
+        names, images, masks = batch
+        # Send images and masks to the specified device
+        images, masks = images.to(device), masks.to(device)
+        # Iterate over each patch in the current batch
+        for patch_name in names:
+            # Call visualize_prediction function to generate the plot for this patch.
+            # Note: The function searches for the patch in the test_loader based on patch_name.
+            visualize_prediction(patch_name, test_loader, model, device, 
+                                                     reversed_codes, custom_colors, show = False)
+            # Get the current figure
+            fig = plt.gcf()
+            # Save the current figure as a new page in the PDF
+            pdf.savefig(fig)
+            # Close the figure to free memory
+            plt.close(fig)
+            # Update progress bar by 1 patch
+            pbar.update(1)
+    
+    # Close the progress bar and PDF file
+    pbar.close()
+    pdf.close()
+    
+    print(f"Saved all test predictions to {output_pdf}")
 
 
 
