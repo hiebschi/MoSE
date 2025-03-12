@@ -477,54 +477,64 @@ def visualize_prediction(patch_name, test_loader, model, device, reversed_codes,
 ######################################################################################
 # Visualize all test patches and save as pdf!
 
-def visualize_all_test_patches(test_loader, model, device, reversed_codes, custom_colors, output_pdf):
+def visualize_all_test_patches(test_loader, model, device, reversed_codes, custom_colors, output_pdf_base):
     """
-    Iterates over all patches in the test DataLoader, calls the visualize_prediction function 
-    for each patch, and saves each visualization as a separate page in a multi-page PDF.
+    Iterates over all patches in the test DataLoader, splits them into 8 groups,
+    and saves each group as a separate PDF.
     
     Args:
         test_loader (DataLoader): PyTorch DataLoader containing test images and masks.
         model (torch.nn.Module): Trained model for generating predictions.
         device (torch.device): Device to perform computations on.
-        reversed_codes (list): List of class names corresponding to class indices.
+        reversed_codes (dict): Dictionary mapping class indices to class names.
         custom_colors (list): List of custom color definitions for each class.
-        output_pdf (str): Filename for the output PDF.
+        output_pdf_base (str): Base file path/name for the output PDFs.
     """
-    # Create a PdfPages object to store multiple pages
-    pdf = PdfPages(output_pdf)
-
-    # Determine the total number of patches from the dataset
-    total_patches = len(test_loader.dataset)
     
-    # Create a tqdm progress bar for all patches
-    pbar = tqdm(total=total_patches, desc="Plotting patches")
-    
-    # Iterate over each batch in the test DataLoader
+    # Collect all patch names from the test dataset
+    patch_names = []
     for batch in test_loader:
-        names, images, masks = batch
-        # Send images and masks to the specified device
-        images, masks = images.to(device), masks.to(device)
-        # Iterate over each patch in the current batch
-        for patch_name in names:
-            # Call visualize_prediction function to generate the plot for this patch.
-            # Note: The function searches for the patch in the test_loader based on patch_name.
-            visualize_prediction(patch_name, test_loader, model, device, 
-                                                     reversed_codes, custom_colors, show = False)
-            # Get the current figure
-            fig = plt.gcf()
-            # Save the current figure as a new page in the PDF
-            pdf.savefig(fig)
-            # Close the figure to free memory
-            plt.close(fig)
-            # Update progress bar by 1 patch
-            pbar.update(1)
-    
-    # Close the progress bar and PDF file
-    pbar.close()
-    pdf.close()
-    
-    print(f"Saved all test predictions to {output_pdf}")
+        names, _, _ = batch  # only the names
+        patch_names.extend(names)
+    total_patches = len(patch_names)
 
+    # Create a tqdm progress bar for all patches
+    # pbar = tqdm(total=total_patches, desc="Plotting patches")
+    
+    # Define the number of chunks (PDFs) to split into
+    num_chunks = 8
+    # Calculate chunk size (round up to include all patches)
+    chunk_size = math.ceil(total_patches / num_chunks)
+    
+    # Process each chunk separately
+    for chunk in range(num_chunks):
+        # Define the output PDF filename for the current chunk
+        pdf_filename = f"{output_pdf_base}_part{chunk+1}.pdf"
+        with PdfPages(pdf_filename) as pdf:
+            # Determine the patch names for this chunk
+            start_idx = chunk * chunk_size
+            end_idx = min((chunk + 1) * chunk_size, total_patches)
+            current_chunk = patch_names[start_idx:end_idx]
+            
+            # Iterate through the patch names in the current chunk
+            for patch_name in current_chunk:
+                # Call the visualization function for the current patch (without showing the plot)
+                visualize_prediction(
+                    patch_name, test_loader, model, device, reversed_codes, custom_colors, show=False
+                )
+                # Retrieve the current figure
+                fig = plt.gcf()
+                # Save the figure as a new page in the PDF
+                pdf.savefig(fig)
+                # Close the figure to free memory
+                plt.close(fig)
+                # Update progress bar by 1 patch
+                # pbar.update(1)
+            
+        print(f"Saved PDF: {pdf_filename}")
+
+    pbar.close()
+    print("All PDF parts have been saved.")
 
 
 
