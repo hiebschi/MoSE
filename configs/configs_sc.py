@@ -34,9 +34,9 @@ DATA_DIR = {
 # Hyperparameters
 
 HYPERPARAMETERS = {
-    "num_classes": 2,
+    "num_classes": 5,
     "epochs": 50,
-    "data_augmentation": True, 
+    "data_augmentation": False, 
     "learning_rate": 1e-6,     # Hyperparameter Tuning showed that lr of 1e-6 leads to the best performance
     "train_sections": ["A01", "A02", "A03", "A05", "A06"],
     "test_sections": ["A04", "A07", "A08"],
