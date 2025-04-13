@@ -27,7 +27,8 @@ DATA_DIR = {
     "masks": os.path.join(BASE_DIR, 'masks'), # one-hot-encoded masks
     "codes": os.path.join(BASE_DIR, 'codes'),
     # "models": os.path.join('/home/sc.uni-leipzig.de/rf37uqip/MoSE/models/') # save trained models in repository!
-    "models": os.path.join('/work/rf37uqip-MoSE_thesis/data/models/') # save trained models in workspace!
+    "models": os.path.join('/work/rf37uqip-MoSE_thesis/data/models/'), # save trained models in workspace!
+    "figures": os.path.join(BASE_DIR, 'figures')
 }
 
 ######################################################
